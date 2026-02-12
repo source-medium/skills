@@ -9,7 +9,7 @@ Copy this prompt and give it to your coding agent:
 ```
 Install the SourceMedium BigQuery analyst skill and help me verify my setup:
 
-1. Run: npx skills add source-medium/skills
+1. Run: npx skills add source-medium/skills@v1.0.0
 2. Run the setup verification commands from the skill
 3. Confirm my BigQuery access is working
 
@@ -19,13 +19,18 @@ My BigQuery project ID is: [YOUR_PROJECT_ID]
 ## Install
 
 ```bash
-# Install all skills
-npx skills add source-medium/skills
+# Install all skills (pinned version - recommended)
+npx skills add source-medium/skills@v1.0.0
 
 # Install specific skill
-npx skills add source-medium/skills --skill sm-bigquery-analyst
-npx skills add source-medium/skills --skill sm-bigquery-analyst-manual
+npx skills add source-medium/skills@v1.0.0 --skill sm-bigquery-analyst
+npx skills add source-medium/skills@v1.0.0 --skill sm-bigquery-analyst-manual
+
+# Install latest (unpinned - may change)
+npx skills add source-medium/skills
 ```
+
+> **Why pin versions?** Pinning to a specific version (`@v1.0.0`) avoids surprise behavior changes. See [Releases](https://github.com/source-medium/skills/releases) for available versions.
 
 ## Available Skills
 
@@ -57,3 +62,9 @@ Your agent will verify access, generate SQL, and return an auditable "SQL receip
 - [Agent Skills Overview](https://docs.sourcemedium.com/ai-analyst/agent-skills)
 - [SM BigQuery Analyst](https://docs.sourcemedium.com/ai-analyst/agent-skills/sm-bigquery-analyst)
 - [BigQuery Access Request Template](https://docs.sourcemedium.com/ai-analyst/agent-skills/bigquery-access-request-template)
+
+## Releases
+
+| Version | Notes |
+|---------|-------|
+| `v1.0.0` | Initial release. sm-bigquery-analyst + sm-bigquery-analyst-manual |
