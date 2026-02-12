@@ -84,3 +84,30 @@ WHERE sm_channel IN ('online_dtc', 'amazon', 'tiktok_shop')
 SELECT sm_channel, ...
 GROUP BY sm_channel
 ```
+
+## Discover Schema at Runtime
+
+Use `sm_metadata.dim_data_dictionary` to discover:
+- Which tables exist and have fresh data
+- Column null percentages and distinct counts
+- Categorical value distributions
+
+Use `sm_metadata.dim_semantic_metric_catalog` to discover:
+- 180+ pre-defined metrics with calculations
+- Metric categories (revenue, marketing, customer, etc.)
+- Abbreviated names and their full equivalents (aov, mer, cac, roas)
+
+## Documentation Links
+
+| Topic | URL |
+|-------|-----|
+| BigQuery Essentials | https://docs.sourcemedium.com/onboarding/analytics-tools/bigquery-essentials |
+| SQL Query Library | https://docs.sourcemedium.com/data-activation/template-resources/sql-query-library |
+| Orders Table | https://docs.sourcemedium.com/data-activation/data-tables/sm_transformed_v2/obt_orders |
+| Customers Table | https://docs.sourcemedium.com/data-activation/data-tables/sm_transformed_v2/obt_customers |
+| Order Lines Table | https://docs.sourcemedium.com/data-activation/data-tables/sm_transformed_v2/obt_order_lines |
+| LTV Cohort Table | https://docs.sourcemedium.com/data-activation/data-tables/sm_transformed_v2/rpt_cohort_ltv_by_first_valid_purchase_attribute_no_product_filters |
+| Ad Performance Table | https://docs.sourcemedium.com/data-activation/data-tables/sm_transformed_v2/rpt_ad_performance_daily |
+| Data Dictionary | https://docs.sourcemedium.com/data-activation/data-tables/sm_metadata/dim_data_dictionary |
+| Metric Catalog | https://docs.sourcemedium.com/data-activation/data-tables/sm_metadata/dim_semantic_metric_catalog |
+| MTA Overview | https://docs.sourcemedium.com/mta/mta-overview |

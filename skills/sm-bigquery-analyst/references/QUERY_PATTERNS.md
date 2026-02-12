@@ -122,6 +122,27 @@ GROUP BY 1 ORDER BY 2 DESC
 
 ## Check Data Freshness
 
+Use `sm_metadata.dim_data_dictionary` for comprehensive data freshness and schema discovery:
+
+```sql
+-- Check which tables have fresh data
+SELECT 
+  table_name, 
+  table_has_data, 
+  table_has_fresh_data_14d, 
+  table_last_data_date
+FROM `your_project.sm_metadata.dim_data_dictionary`
+WHERE table_has_data = TRUE
+ORDER BY table_name
+
+-- Check specific table freshness
+SELECT table_name, table_last_data_date
+FROM `your_project.sm_metadata.dim_data_dictionary`
+WHERE table_name IN ('obt_orders', 'obt_customers', 'obt_order_lines')
+```
+
+You can also use the `__TABLES__` metadata table:
+
 ```sql
 SELECT
   table_id,
@@ -130,6 +151,64 @@ FROM `your_project.sm_transformed_v2.__TABLES__`
 WHERE table_id IN ('obt_orders', 'obt_customers', 'obt_order_lines')
 ORDER BY last_modified DESC
 ```
+
+## Discover Column Stats and Values
+
+Use `sm_metadata.dim_data_dictionary` to discover column-level metadata:
+
+```sql
+-- See column null rates and distinct counts
+SELECT 
+  column_name, 
+  column_null_percentage,
+  column_distinct_count
+FROM `your_project.sm_metadata.dim_data_dictionary`
+WHERE table_name = 'obt_orders'
+ORDER BY column_null_percentage DESC
+
+-- Discover categorical value distribution for a column
+SELECT 
+  column_name,
+  categorical_value_distribution
+FROM `your_project.sm_metadata.dim_data_dictionary`
+WHERE table_name = 'obt_orders'
+  AND column_name = 'sm_channel'
+```
+
+## Discover Available Metrics
+
+Use `sm_metadata.dim_semantic_metric_catalog` to discover 180+ pre-defined metrics:
+
+```sql
+-- Find all revenue metrics
+SELECT metric_name, metric_label, metric_type, calculation
+FROM `your_project.sm_metadata.dim_semantic_metric_catalog`
+WHERE metric_category = 'revenue'
+ORDER BY metric_name
+
+-- Find marketing efficiency metrics (MER, ROAS, CAC, etc.)
+SELECT metric_name, metric_description, calculation, dependent_metrics
+FROM `your_project.sm_metadata.dim_semantic_metric_catalog`
+WHERE metric_category = 'marketing'
+ORDER BY metric_name
+
+-- Resolve abbreviated metric names
+SELECT metric_name, preferred_metric_name, metric_description
+FROM `your_project.sm_metadata.dim_semantic_metric_catalog`
+WHERE metric_name IN ('aov', 'mer', 'cac', 'roas')
+
+-- Find metrics by data source
+SELECT metric_name, metric_type, metric_category
+FROM `your_project.sm_metadata.dim_semantic_metric_catalog`
+WHERE semantic_model_name = 'orders'
+ORDER BY metric_category, metric_name
+```
+
+Common metric aliases:
+- `aov` → `average_order_value_net`
+- `mer` → `marketing_efficiency_ratio`
+- `cac` → `customer_acquisition_cost`
+- `roas` → `return_on_ad_spend`
 
 ## MTA / Attribution Queries
 
