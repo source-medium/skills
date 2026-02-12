@@ -19,12 +19,8 @@ My BigQuery project ID is: [YOUR_PROJECT_ID]
 ## Install
 
 ```bash
-# Install all skills (pinned version - recommended)
+# Install (pinned version - recommended)
 npx skills add source-medium/skills@v1.0.0
-
-# Install specific skill
-npx skills add source-medium/skills@v1.0.0 --skill sm-bigquery-analyst
-npx skills add source-medium/skills@v1.0.0 --skill sm-bigquery-analyst-manual
 
 # Install latest (unpinned - may change)
 npx skills add source-medium/skills
@@ -37,7 +33,6 @@ npx skills add source-medium/skills
 | Skill | Description |
 |-------|-------------|
 | `sm-bigquery-analyst` | Query SourceMedium BigQuery safely. Emits SQL receipts. SELECT-only, cost-guarded. |
-| `sm-bigquery-analyst-manual` | Manual-only version. Requires explicit `/sm-bigquery-analyst-manual` invocation. |
 
 ## After Installing
 
@@ -67,4 +62,4 @@ Your agent will verify access, generate SQL, and return an auditable "SQL receip
 
 | Version | Notes |
 |---------|-------|
-| `v1.0.0` | Initial release. sm-bigquery-analyst + sm-bigquery-analyst-manual |
+| `v1.0.0` | Initial release |
