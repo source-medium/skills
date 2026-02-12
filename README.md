@@ -9,7 +9,7 @@ Copy this prompt and give it to your coding agent:
 ```
 Install the SourceMedium BigQuery analyst skill and help me verify my setup:
 
-1. Run: npx skills add source-medium/skills@v1.0.0
+1. Run: npx skills add source-medium/skills --skill sm-bigquery-analyst
 2. Run the setup verification commands from the skill
 3. Confirm my BigQuery access is working
 
@@ -19,14 +19,12 @@ My BigQuery project ID is: [YOUR_PROJECT_ID]
 ## Install
 
 ```bash
-# Install (pinned version - recommended)
-npx skills add source-medium/skills@v1.0.0
-
-# Install latest (unpinned - may change)
-npx skills add source-medium/skills
+npx skills add source-medium/skills --skill sm-bigquery-analyst
 ```
 
-> **Why pin versions?** Pinning to a specific version (`@v1.0.0`) avoids surprise behavior changes. See [Releases](https://github.com/source-medium/skills/releases) for available versions.
+To pin to a specific version: `npx skills add source-medium/skills@v1.0.1 --skill sm-bigquery-analyst`
+
+See [Releases](https://github.com/source-medium/skills/releases) for available versions.
 
 ## Available Skills
 
@@ -62,4 +60,5 @@ Your agent will verify access, generate SQL, and return an auditable "SQL receip
 
 | Version | Notes |
 |---------|-------|
+| `v1.0.1` | Single skill, fixed SQL |
 | `v1.0.0` | Initial release |
