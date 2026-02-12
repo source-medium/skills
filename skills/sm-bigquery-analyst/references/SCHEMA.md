@@ -10,6 +10,68 @@ Key tables, grains, columns, and naming conventions for SourceMedium BigQuery.
 | `sm_metadata` | Data dictionary, metric catalog, data quality results |
 | `sm_experimental` | MTA / attribution models |
 
+## Project Naming Convention
+
+Customer-hosted BigQuery projects follow the pattern:
+
+```
+sm-{{tenant_id}}
+```
+
+Example: If your tenant ID is `acme-corp`, your project is `sm-acme-corp`.
+
+```sql
+-- Example fully-qualified table reference
+FROM `sm-acme-corp.sm_transformed_v2.obt_orders`
+```
+
+## Multi-Store Filtering
+
+If your brand has multiple stores (e.g., US, EU, wholesale), all stores' data lives in the same tables. Filter by store using `sm_store_id`:
+
+```sql
+-- Single store analysis
+SELECT SUM(order_net_revenue) AS revenue
+FROM `your_project.sm_transformed_v2.obt_orders`
+WHERE is_order_sm_valid = TRUE
+  AND sm_store_id = 'your_sm_store_id'
+
+-- Multi-store breakdown
+SELECT sm_store_id, COUNT(*) AS orders, SUM(order_net_revenue) AS revenue
+FROM `your_project.sm_transformed_v2.obt_orders`
+WHERE is_order_sm_valid = TRUE
+GROUP BY sm_store_id
+ORDER BY revenue DESC
+```
+
+**Warning:** Querying without `sm_store_id` filter analyzes ALL stores' data combined. If you have multiple stores, always include this filter for single-store analysis.
+
+## Sales Channel Filtering
+
+`sm_channel` is a critical dimension for segmentation. Always include it in analysis to understand performance by channel:
+
+| Channel | Description |
+|---------|-------------|
+| `online_dtc` | Direct-to-consumer website orders |
+| `amazon` | Amazon marketplace orders |
+| `tiktok_shop` | TikTok Shop orders |
+
+```sql
+-- Channel performance breakdown
+SELECT sm_channel, COUNT(*) AS orders, SUM(order_net_revenue) AS revenue
+FROM `your_project.sm_transformed_v2.obt_orders`
+WHERE is_order_sm_valid = TRUE
+GROUP BY sm_channel
+ORDER BY revenue DESC
+
+-- Single channel analysis
+SELECT * FROM `your_project.sm_transformed_v2.obt_orders`
+WHERE is_order_sm_valid = TRUE
+  AND sm_channel = 'online_dtc'
+```
+
+Channel values are derived from a hierarchy: exclusion tags → config sheet overrides → default logic (amazon/tiktok_shop/walmart.com → marketplace; pos/leap → retail; wholesale tags → wholesale; otherwise online_dtc).
+
 ## Core Tables
 
 | Table | Grain | Primary key | Use case |
@@ -71,19 +133,6 @@ WHERE order_processed_at_local_datetime >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 
 These columns are automatically standardized (trimmed, lowercased). Use lowercase snake_case values in filters:
 
 `sm_channel`, `sm_default_channel`, `sm_sub_channel`, `sm_order_type`, `subscriber_status`, `sm_order_sales_channel`, `order_source_name`, `order_sequence`, `valid_order_sequence`, `subscription_order_sequence`, `ad_campaign_type`, `ad_campaign_tactic`, `ad_platform_campaign_objective`, `acquisition_order_filter_dimension`, `sm_order_line_type`, `slice`, `filter_name`, `filter_value`, `source_system`, `order_session_browser_type`, `order_processing_method`, `primary_order_payment_gateway`
-
-## Sales Channel Values
-
-Canonical values (use these in SQL): `online_dtc`, `amazon`, `tiktok_shop`
-
-```sql
--- Filter to specific channels
-WHERE sm_channel IN ('online_dtc', 'amazon', 'tiktok_shop')
-
--- Per-channel breakdown
-SELECT sm_channel, ...
-GROUP BY sm_channel
-```
 
 ## Discover Schema at Runtime
 
