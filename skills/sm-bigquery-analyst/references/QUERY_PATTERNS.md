@@ -28,7 +28,7 @@ SELECT
   SAFE_DIVIDE(SUM(order_net_revenue), COUNT(DISTINCT sm_customer_key)) AS avg_first_order_value
 FROM `your_project.sm_transformed_v2.obt_orders`
 WHERE is_order_sm_valid = TRUE
-  AND is_first_purchase_order = TRUE
+  AND order_sequence = '1st_order'
 GROUP BY 1, 2
 ORDER BY 1 DESC
 ```
@@ -62,7 +62,7 @@ SELECT
   SAFE_DIVIDE(SUM(ad_clicks), SUM(ad_impressions)) AS ctr,
   SAFE_DIVIDE(SUM(ad_spend), SUM(ad_clicks)) AS cpc
 FROM `your_project.sm_transformed_v2.rpt_ad_performance_daily`
-WHERE report_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 GROUP BY 1
 ORDER BY spend DESC
 ```
@@ -91,7 +91,7 @@ Queries against `rpt_cohort_ltv_*` tables have strict requirements:
 
 ```sql
 SELECT
-  first_order_month,
+  cohort_month,
   months_since_first_order,
   AVG(SAFE_DIVIDE(cumulative_order_net_revenue, cohort_size)) AS avg_ltv
 FROM `your_project.sm_transformed_v2.rpt_cohort_ltv_by_first_valid_purchase_attribute_no_product_filters`
