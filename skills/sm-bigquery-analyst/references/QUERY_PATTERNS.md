@@ -10,7 +10,7 @@ SELECT
   sm_channel,
   COUNT(sm_order_key) AS order_count,
   SUM(order_net_revenue) AS revenue
-FROM `your_project.sm_transformed_v2.obt_orders`
+FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
 WHERE is_order_sm_valid = TRUE
   AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 GROUP BY 1, 2
@@ -26,7 +26,7 @@ SELECT
   COUNT(DISTINCT sm_customer_key) AS new_customers,
   SUM(order_net_revenue) AS revenue,
   SAFE_DIVIDE(SUM(order_net_revenue), COUNT(DISTINCT sm_customer_key)) AS avg_first_order_value
-FROM `your_project.sm_transformed_v2.obt_orders`
+FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
 WHERE is_order_sm_valid = TRUE
   AND order_sequence = '1st_order'
 GROUP BY 1, 2
@@ -44,7 +44,7 @@ SELECT
   SUM(order_line_product_cost) AS cogs,
   SUM(order_line_gross_profit) AS profit,
   SAFE_DIVIDE(SUM(order_line_gross_profit), SUM(order_line_net_revenue)) AS profit_margin
-FROM `your_project.sm_transformed_v2.obt_order_lines`
+FROM `sm-<tenant_id>.sm_transformed_v2.obt_order_lines`
 WHERE is_order_sm_valid = TRUE
 GROUP BY 1, 2
 ORDER BY revenue DESC
@@ -61,7 +61,7 @@ SELECT
   SUM(ad_clicks) AS clicks,
   SAFE_DIVIDE(SUM(ad_clicks), SUM(ad_impressions)) AS ctr,
   SAFE_DIVIDE(SUM(ad_spend), SUM(ad_clicks)) AS cpc
-FROM `your_project.sm_transformed_v2.rpt_ad_performance_daily`
+FROM `sm-<tenant_id>.sm_transformed_v2.rpt_ad_performance_daily`
 WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 GROUP BY 1
 ORDER BY spend DESC
@@ -94,7 +94,7 @@ SELECT
   cohort_month,
   months_since_first_order,
   AVG(SAFE_DIVIDE(cumulative_order_net_revenue, cohort_size)) AS avg_ltv
-FROM `your_project.sm_transformed_v2.rpt_cohort_ltv_by_first_valid_purchase_attribute_no_product_filters`
+FROM `sm-<tenant_id>.sm_transformed_v2.rpt_cohort_ltv_by_first_valid_purchase_attribute_no_product_filters`
 WHERE sm_order_line_type = 'all_orders'
   AND acquisition_order_filter_dimension = 'source/medium'
   AND months_since_first_order <= 12
@@ -109,13 +109,13 @@ Always discover values before using `LIKE` or `IN` on categorical columns:
 ```sql
 -- See what channel values exist
 SELECT sm_channel, COUNT(*) AS n
-FROM `your_project.sm_transformed_v2.obt_orders`
+FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
 WHERE is_order_sm_valid = TRUE
 GROUP BY 1 ORDER BY 2 DESC
 
 -- See what order sequence values exist
 SELECT subscription_order_sequence, COUNT(*) AS n
-FROM `your_project.sm_transformed_v2.obt_orders`
+FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
 WHERE is_order_sm_valid = TRUE
 GROUP BY 1 ORDER BY 2 DESC
 ```
@@ -131,13 +131,13 @@ SELECT
   table_has_data, 
   table_has_fresh_data_14d, 
   table_last_data_date
-FROM `your_project.sm_metadata.dim_data_dictionary`
+FROM `sm-<tenant_id>.sm_metadata.dim_data_dictionary`
 WHERE table_has_data = TRUE
 ORDER BY table_name
 
 -- Check specific table freshness
 SELECT table_name, table_last_data_date
-FROM `your_project.sm_metadata.dim_data_dictionary`
+FROM `sm-<tenant_id>.sm_metadata.dim_data_dictionary`
 WHERE table_name IN ('obt_orders', 'obt_customers', 'obt_order_lines')
 ```
 
@@ -147,7 +147,7 @@ You can also use the `__TABLES__` metadata table:
 SELECT
   table_id,
   TIMESTAMP_MILLIS(last_modified_time) AS last_modified
-FROM `your_project.sm_transformed_v2.__TABLES__`
+FROM `sm-<tenant_id>.sm_transformed_v2.__TABLES__`
 WHERE table_id IN ('obt_orders', 'obt_customers', 'obt_order_lines')
 ORDER BY last_modified DESC
 ```
@@ -162,7 +162,7 @@ SELECT
   column_name, 
   column_null_percentage,
   column_distinct_count
-FROM `your_project.sm_metadata.dim_data_dictionary`
+FROM `sm-<tenant_id>.sm_metadata.dim_data_dictionary`
 WHERE table_name = 'obt_orders'
 ORDER BY column_null_percentage DESC
 
@@ -170,7 +170,7 @@ ORDER BY column_null_percentage DESC
 SELECT 
   column_name,
   categorical_value_distribution
-FROM `your_project.sm_metadata.dim_data_dictionary`
+FROM `sm-<tenant_id>.sm_metadata.dim_data_dictionary`
 WHERE table_name = 'obt_orders'
   AND column_name = 'sm_channel'
 ```
@@ -182,24 +182,24 @@ Use `sm_metadata.dim_semantic_metric_catalog` to discover 180+ pre-defined metri
 ```sql
 -- Find all revenue metrics
 SELECT metric_name, metric_label, metric_type, calculation
-FROM `your_project.sm_metadata.dim_semantic_metric_catalog`
+FROM `sm-<tenant_id>.sm_metadata.dim_semantic_metric_catalog`
 WHERE metric_category = 'revenue'
 ORDER BY metric_name
 
 -- Find marketing efficiency metrics (MER, ROAS, CAC, etc.)
 SELECT metric_name, metric_description, calculation, dependent_metrics
-FROM `your_project.sm_metadata.dim_semantic_metric_catalog`
+FROM `sm-<tenant_id>.sm_metadata.dim_semantic_metric_catalog`
 WHERE metric_category = 'marketing'
 ORDER BY metric_name
 
 -- Resolve abbreviated metric names
 SELECT metric_name, preferred_metric_name, metric_description
-FROM `your_project.sm_metadata.dim_semantic_metric_catalog`
+FROM `sm-<tenant_id>.sm_metadata.dim_semantic_metric_catalog`
 WHERE metric_name IN ('aov', 'mer', 'cac', 'roas')
 
 -- Find metrics by data source
 SELECT metric_name, metric_type, metric_category
-FROM `your_project.sm_metadata.dim_semantic_metric_catalog`
+FROM `sm-<tenant_id>.sm_metadata.dim_semantic_metric_catalog`
 WHERE semantic_model_name = 'orders'
 ORDER BY metric_category, metric_name
 ```
@@ -215,7 +215,7 @@ Common metric aliases:
 If the question involves multi-touch attribution, use the experimental dataset:
 
 ```sql
-FROM `your_project.sm_experimental.obt_purchase_journeys_with_mta_models`
+FROM `sm-<tenant_id>.sm_experimental.obt_purchase_journeys_with_mta_models`
 ```
 
 For standard order/revenue analysis, use `sm_transformed_v2` tables.

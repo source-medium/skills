@@ -36,10 +36,19 @@ gcloud config get-value project
 # 4. Validate BigQuery API access (dry-run)
 bq query --use_legacy_sql=false --dry_run 'SELECT 1 AS ok'
 
-# 5. Test table access (replace YOUR_PROJECT_ID)
+# 5. Test table access (your project is named sm-<tenant_id>)
+#    Example: if your tenant is "acme-corp", your project is sm-acme-corp
 bq query --use_legacy_sql=false --dry_run "
   SELECT 1 
-  FROM \`YOUR_PROJECT_ID.sm_transformed_v2.obt_orders\` 
+  FROM \`sm-<tenant_id>.sm_transformed_v2.obt_orders\` 
+  LIMIT 1
+"
+
+# 6. Confirm you can actually read data (not just dry-run)
+bq query --use_legacy_sql=false "
+  SELECT 1
+  FROM \`sm-<tenant_id>.sm_transformed_v2.obt_orders\`
+  WHERE is_order_sm_valid = TRUE
   LIMIT 1
 "
 ```
@@ -53,8 +62,15 @@ These are hard constraints. Do not bypass.
 ### Query Safety
 
 1. **SELECT-only** — deny: INSERT, UPDATE, DELETE, MERGE, CREATE, DROP, EXPORT, COPY
-2. **Dry-run first** when iterating on new queries: `bq query --dry_run '...'`
-3. **Maximum bytes billed** — warn if scan exceeds 1GB without explicit approval
+2. **Dry-run first** when iterating on new queries:
+   ```bash
+   bq query --use_legacy_sql=false --dry_run '<SQL>'
+   ```
+3. **Enforce cost limit** with maximum bytes billed:
+   ```bash
+   bq query --use_legacy_sql=false --maximum_bytes_billed=1073741824 '<SQL>'
+   ```
+   (1GB = 1073741824 bytes. If it fails due to bytes billed, tighten filters or ask for approval.)
 4. **Always bound queries**:
    - Add `LIMIT` clause (max 100 rows for exploratory)
    - Use date/partition filters when querying partitioned tables
@@ -66,18 +82,22 @@ These are hard constraints. Do not bypass.
 2. **PII handling**:
    - Do not output columns likely containing PII (email, phone, address, name) without explicit confirmation
    - If PII is requested, confirm scope and purpose before proceeding
-   - Suggest anonymization (hashing, aggregation) as alternatives
+   - Prefer anonymization. Example:
+     ```sql
+     -- Hash PII instead of exposing raw values
+     SELECT TO_HEX(SHA256(LOWER(email))) AS email_hash, ...
+     ```
 
 ### Cost Guardrails
 
 ```sql
 -- Good: bounded scan
-SELECT ... FROM `project.dataset.table`
-WHERE DATE(column) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+SELECT ... FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
+WHERE DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 LIMIT 100
 
 -- Bad: full table scan
-SELECT ... FROM `project.dataset.table`  -- no filters
+SELECT ... FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`  -- no filters
 ```
 
 ## Output Contract
@@ -88,6 +108,7 @@ For analytical questions, always return:
 2. **SQL (copy/paste)** — BigQuery Standard SQL used for the result
 3. **Notes** — timeframe, metric definitions, grain, scope, timezone, attribution lens
 4. **Verify** — `bq query --use_legacy_sql=false --dry_run '<SQL>'` command
+5. **Bytes scanned** — if >1GB, note this and ask for approval before running
 
 If access/setup fails, do not fabricate results. Return:
 
@@ -97,16 +118,15 @@ If access/setup fails, do not fabricate results. Return:
 
 ## Query Guardrails
 
-1. Fully qualify tables as `` `project.dataset.table` ``
+1. Fully qualify tables as `` `sm-<tenant_id>.dataset.table` ``
 2. For order analyses, default to `WHERE is_order_sm_valid = TRUE`
 3. Use `sm_store_id` (not `smcid` — that name does not exist in customer tables)
 4. Use `SAFE_DIVIDE` for ratio math
 5. Handle DATE/TIMESTAMP typing explicitly (`DATE(ts_col)` when comparing to dates)
 6. Use `order_net_revenue` for revenue metrics (not `order_gross_revenue` unless explicitly asked)
-7. Use `*_local_datetime` columns for date-based reporting (not UTC `*_at` columns)
-8. Avoid `LIKE`/`REGEXP` on low-cardinality fields; discover values first with `SELECT DISTINCT`, then use exact match
-9. `LIKE` is acceptable for free-text fields (`utm_campaign`, `product_title`, `page_path`)
-10. **LTV tables (`rpt_cohort_ltv_*`)**: always filter `sm_order_line_type` to exactly ONE value
+7. **Prefer `*_local_datetime` columns** when available for date-based reporting; otherwise be explicit about UTC vs local
+8. **For enumerations** (channel, platform, status), discover values with `SELECT DISTINCT` first, then use exact match. Reserve `LIKE`/`REGEXP` for free-text fields (`utm_campaign`, `product_title`, `page_path`)
+9. **LTV tables (`rpt_cohort_ltv_*`)**: always filter `sm_order_line_type` to exactly ONE value
 
 ## References
 

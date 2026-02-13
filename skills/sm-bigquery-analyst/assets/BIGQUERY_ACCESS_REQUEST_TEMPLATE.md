@@ -32,22 +32,22 @@ Hi Admin Team,
 
 Please grant BigQuery access for:
 - Principal: <user-or-group-email>
-- Project: <PROJECT_ID>
+- Project: sm-<tenant_id>  (your SourceMedium BigQuery project)
 
 Required permissions:
 1) Project-level role:
    - roles/bigquery.jobUser
 
 2) Dataset-level roles:
-   - roles/bigquery.dataViewer on <PROJECT_ID>.sm_transformed_v2
-   - roles/bigquery.dataViewer on <PROJECT_ID>.sm_metadata
+   - roles/bigquery.dataViewer on sm-<tenant_id>.sm_transformed_v2
+   - roles/bigquery.dataViewer on sm-<tenant_id>.sm_metadata
 
 Optional (if needed for MTA/experimental analysis):
-- roles/bigquery.dataViewer on <PROJECT_ID>.sm_experimental
+- roles/bigquery.dataViewer on sm-<tenant_id>.sm_experimental
 
 Success criteria after grant:
 - bq query --use_legacy_sql=false --dry_run 'SELECT 1 AS ok' succeeds
-- bq query --use_legacy_sql=false "SELECT 1 FROM \`<PROJECT_ID>.sm_transformed_v2.obt_orders\` LIMIT 1" succeeds
+- bq query --use_legacy_sql=false "SELECT 1 FROM \`sm-<tenant_id>.sm_transformed_v2.obt_orders\` WHERE is_order_sm_valid = TRUE LIMIT 1" succeeds
 
 Thanks.
 ```
