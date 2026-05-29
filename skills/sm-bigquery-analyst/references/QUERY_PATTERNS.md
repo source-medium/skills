@@ -2,6 +2,35 @@
 
 Common SQL patterns for SourceMedium BigQuery analysis.
 
+## Domain Discovery (Start Here)
+
+Before writing analytical SQL, find out which business areas have data in your warehouse:
+
+```sql
+-- What business domains do I have data for?
+SELECT
+  table_name,
+  table_description,
+  table_has_data,
+  table_has_fresh_data_14d,
+  table_last_data_date
+FROM `sm-<tenant_id>.sm_metadata.dim_data_dictionary`
+WHERE table_has_data = TRUE
+  AND dataset_name = 'sm_transformed_v2'
+ORDER BY table_name
+```
+
+Use the results to decide which questions are answerable:
+
+| Tables present | Domains unlocked |
+|----------------|-----------------|
+| `obt_orders`, `obt_order_lines` | Revenue, product performance, profitability |
+| `obt_customers` | Customer acquisition, retention, subscription status |
+| `rpt_ad_performance_daily` | Marketing efficiency, ad spend, ROAS, CPA |
+| `rpt_cohort_ltv_*` | LTV curves, retention cohorts |
+| `obt_events` | Funnel, session, conversion analysis |
+| `obt_purchase_journeys_with_mta_models` | Multi-touch attribution |
+
 ## Daily Revenue by Channel
 
 ```sql
@@ -13,8 +42,9 @@ SELECT
 FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
 WHERE is_order_sm_valid = TRUE
   AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-GROUP BY 1, 2
-ORDER BY 1 DESC
+GROUP BY order_date, sm_channel
+ORDER BY order_date DESC
+LIMIT 100
 ```
 
 ## New Customer Acquisition by Source
@@ -29,8 +59,10 @@ SELECT
 FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
 WHERE is_order_sm_valid = TRUE
   AND order_sequence = '1st_order'
-GROUP BY 1, 2
-ORDER BY 1 DESC
+  AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+GROUP BY order_date, sm_utm_source_medium
+ORDER BY order_date DESC
+LIMIT 100
 ```
 
 ## Product Performance with Margins
@@ -46,7 +78,8 @@ SELECT
   SAFE_DIVIDE(SUM(order_line_gross_profit), SUM(order_line_net_revenue)) AS profit_margin
 FROM `sm-<tenant_id>.sm_transformed_v2.obt_order_lines`
 WHERE is_order_sm_valid = TRUE
-GROUP BY 1, 2
+  AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+GROUP BY product_title, sku
 ORDER BY revenue DESC
 LIMIT 20
 ```
@@ -55,7 +88,8 @@ LIMIT 20
 
 ```sql
 SELECT
-  ad_platform,
+  source_system,
+  sm_channel,
   SUM(ad_spend) AS spend,
   SUM(ad_impressions) AS impressions,
   SUM(ad_clicks) AS clicks,
@@ -63,9 +97,36 @@ SELECT
   SAFE_DIVIDE(SUM(ad_spend), SUM(ad_clicks)) AS cpc
 FROM `sm-<tenant_id>.sm_transformed_v2.rpt_ad_performance_daily`
 WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-GROUP BY 1
+GROUP BY source_system, sm_channel
 ORDER BY spend DESC
+LIMIT 50
 ```
+
+## Platform ROAS by Campaign Type
+
+Use this for platform-reported ad efficiency. For blended MER/ROAS, resolve the
+metric in `dim_semantic_metric_catalog` and use order revenue plus ad spend at a
+compatible grain.
+
+```sql
+SELECT
+  sm_store_id,
+  source_system,
+  COALESCE(NULLIF(ad_campaign_type, ''), '(unknown)') AS campaign_type,
+  SUM(ad_platform_reported_revenue) AS platform_reported_revenue,
+  SUM(ad_spend) AS ad_spend,
+  SAFE_DIVIDE(SUM(ad_platform_reported_revenue), NULLIF(SUM(ad_spend), 0)) AS platform_roas
+FROM `sm-<tenant_id>.sm_transformed_v2.rpt_ad_performance_daily`
+WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+  AND ad_spend > 0
+GROUP BY sm_store_id, source_system, campaign_type
+ORDER BY platform_roas DESC
+LIMIT 50
+```
+
+For TikTok CPC, CTR, and CPM analysis, check `ad_campaign_type` first. Exclude
+`ad_campaign_type = 'gmv_max'` when the user wants ordinary TikTok Ads ratios,
+because GMV Max rows can have spend without ordinary click/impression coverage.
 
 ## LTV Cohort Analysis (CRITICAL)
 
@@ -97,9 +158,11 @@ SELECT
 FROM `sm-<tenant_id>.sm_transformed_v2.rpt_cohort_ltv_by_first_valid_purchase_attribute_no_product_filters`
 WHERE sm_order_line_type = 'all_orders'
   AND acquisition_order_filter_dimension = 'source/medium'
+  AND cohort_month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 24 MONTH)
   AND months_since_first_order <= 12
-GROUP BY 1, 2
-ORDER BY 1, 2
+GROUP BY cohort_month, months_since_first_order
+ORDER BY cohort_month, months_since_first_order
+LIMIT 500
 ```
 
 ## Discover Categorical Values (Before Filtering)
@@ -111,18 +174,18 @@ Always discover values before using `LIKE` or `IN` on categorical columns:
 SELECT sm_channel, COUNT(*) AS n
 FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
 WHERE is_order_sm_valid = TRUE
-GROUP BY 1 ORDER BY 2 DESC
+GROUP BY sm_channel ORDER BY n DESC
 
 -- See what order sequence values exist
 SELECT subscription_order_sequence, COUNT(*) AS n
 FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
 WHERE is_order_sm_valid = TRUE
-GROUP BY 1 ORDER BY 2 DESC
+GROUP BY subscription_order_sequence ORDER BY n DESC
 ```
 
 ## Check Data Freshness
 
-Use `sm_metadata.dim_data_dictionary` for comprehensive data freshness and schema discovery:
+Use `sm_metadata.dim_data_dictionary` for freshness and schema discovery:
 
 ```sql
 -- Check which tables have fresh data
@@ -141,15 +204,47 @@ FROM `sm-<tenant_id>.sm_metadata.dim_data_dictionary`
 WHERE table_name IN ('obt_orders', 'obt_customers', 'obt_order_lines')
 ```
 
-You can also use the `__TABLES__` metadata table:
+## Revenue Sanity Check
+
+Discounts and refunds are usually negative or zero. Use this when reconciling
+gross, net, and total revenue.
 
 ```sql
 SELECT
-  table_id,
-  TIMESTAMP_MILLIS(last_modified_time) AS last_modified
-FROM `sm-<tenant_id>.sm_transformed_v2.__TABLES__`
-WHERE table_id IN ('obt_orders', 'obt_customers', 'obt_order_lines')
-ORDER BY last_modified DESC
+  sm_store_id,
+  SUM(order_gross_revenue) AS gross_revenue,
+  SUM(order_discounts) AS discounts,
+  SUM(order_refunds) AS refunds,
+  SUM(order_net_revenue) AS net_revenue,
+  SUM(order_net_revenue_before_refunds) AS net_revenue_before_refunds,
+  SUM(order_total_revenue) AS total_revenue
+FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
+WHERE is_order_sm_valid = TRUE
+  AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+GROUP BY sm_store_id
+ORDER BY net_revenue DESC
+LIMIT 50
+```
+
+## Channel Mapping Debug
+
+Use this when channel results look wrong or too much revenue lands in one bucket.
+
+```sql
+SELECT
+  sm_order_key,
+  sm_channel,
+  sm_sub_channel,
+  sm_default_channel,
+  sm_order_sales_channel,
+  source_system_sales_channel,
+  sm_utm_source_medium,
+  order_discount_codes_csv
+FROM `sm-<tenant_id>.sm_transformed_v2.obt_orders`
+WHERE is_order_sm_valid = TRUE
+  AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+ORDER BY order_processed_at_local_datetime DESC
+LIMIT 200
 ```
 
 ## Discover Column Stats and Values

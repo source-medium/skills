@@ -1,0 +1,28 @@
+{
+  "metric_contracts": [
+    {
+      "id": "aov",
+      "name": "Average Order Value",
+      "type": "ratio",
+      "formula": "SAFE_DIVIDE(SUM(order_net_revenue), COUNT(DISTINCT sm_order_key))",
+      "numerator": "SUM(order_net_revenue)",
+      "denominator": "COUNT(DISTINCT sm_order_key)",
+      "grain": "day",
+      "date_field": "order_processed_at_local_datetime",
+      "source_tables": [
+        "PROJECT.sm_transformed_v2.obt_orders"
+      ],
+      "filters": [
+        "is_order_sm_valid = TRUE",
+        "bounded reporting date range"
+      ],
+      "additivity": "non_additive",
+      "attribution_lens": "not attribution-dependent",
+      "timezone": "store local datetime",
+      "denominator_policy": "Do not present when order count is zero; show denominator in tooltip/table.",
+      "caveats": [
+        "AOV is non-additive; recompute from numerator and denominator at each grain."
+      ]
+    }
+  ]
+}

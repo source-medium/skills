@@ -1,0 +1,7 @@
+interface:
+  display_name: "SourceMedium Dashboard Builder"
+  short_description: "Build accurate SourceMedium BI dashboards."
+  brand_color: "#1868DB"
+  default_prompt: "Use $sm-dashboard-builder to create a SourceMedium BigQuery dashboard with validated metric contracts, BI-safe SQL, renderer-appropriate charts, and SQL receipts."
+policy:
+  allow_implicit_invocation: true

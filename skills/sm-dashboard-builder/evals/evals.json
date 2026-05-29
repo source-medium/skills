@@ -1,0 +1,39 @@
+{
+  "examples": [
+    {
+      "prompt": "Build an HTML executive dashboard for revenue, orders, AOV, and channel mix for the last 30 days from our SourceMedium BigQuery warehouse.",
+      "should_trigger": true,
+      "expectations": [
+        "discovers SourceMedium metadata and metric definitions before SQL",
+        "uses validated BI-safe BigQuery SQL with bounded dates",
+        "produces an HTML dashboard manifest or dashboard.html",
+        "includes SQL receipts, freshness notes, and QA caveats"
+      ]
+    },
+    {
+      "prompt": "Create Metabase-ready cards for a CAC and MER dashboard using SourceMedium attribution and ads data.",
+      "should_trigger": true,
+      "expectations": [
+        "defines metric contracts for spend, revenue, CAC, MER, and attribution lens",
+        "checks denominator safety and attribution window assumptions",
+        "returns SQL cards plus dashboard layout guidance"
+      ]
+    },
+    {
+      "prompt": "Make a dashboard that joins my fulfillment SLA table to SourceMedium order revenue by store and month.",
+      "should_trigger": true,
+      "expectations": [
+        "documents customer table grain and join keys",
+        "validates join cardinality before charting",
+        "keeps customer-owned data clearly separated from SourceMedium metrics"
+      ]
+    },
+    {
+      "prompt": "Add a new dbt model for orders.",
+      "should_trigger": false,
+      "expectations": [
+        "dbt modeling is outside this dashboard-building skill"
+      ]
+    }
+  ]
+}

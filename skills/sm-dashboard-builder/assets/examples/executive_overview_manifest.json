@@ -1,0 +1,129 @@
+{
+  "title": "Executive Overview",
+  "subtitle": "Template dashboard for last 30 days performance.",
+  "freshness": "Example only. Replace after querying dim_data_dictionary.",
+  "scope": {
+    "project": "PROJECT",
+    "store": "all stores",
+    "timeframe": "last 30 days",
+    "timezone": "store local datetime"
+  },
+  "metric_contracts": [
+    {
+      "id": "net_revenue",
+      "name": "Net Revenue",
+      "type": "currency",
+      "formula": "SUM(order_net_revenue)",
+      "grain": "day, channel",
+      "date_field": "order_processed_at_local_datetime",
+      "source_tables": [
+        "PROJECT.sm_transformed_v2.obt_orders"
+      ],
+      "filters": [
+        "is_order_sm_valid = TRUE",
+        "last 30 days"
+      ],
+      "additivity": "additive",
+      "caveats": []
+    },
+    {
+      "id": "orders",
+      "name": "Orders",
+      "type": "count",
+      "formula": "COUNT(DISTINCT sm_order_key)",
+      "grain": "day, channel",
+      "date_field": "order_processed_at_local_datetime",
+      "source_tables": [
+        "PROJECT.sm_transformed_v2.obt_orders"
+      ],
+      "filters": [
+        "is_order_sm_valid = TRUE",
+        "last 30 days"
+      ],
+      "additivity": "additive",
+      "caveats": []
+    }
+  ],
+  "kpis": [
+    {
+      "label": "Net Revenue",
+      "value": "$124,500",
+      "delta": "+8.4% vs prior period",
+      "note": "Example values only."
+    },
+    {
+      "label": "Orders",
+      "value": "3,210",
+      "delta": "+3.1% vs prior period",
+      "note": "Example values only."
+    }
+  ],
+  "charts": [
+    {
+      "id": "revenue_by_day",
+      "title": "Net Revenue by Day",
+      "subtitle": "Example rows; replace with executed results.",
+      "metric_contract_ids": [
+        "net_revenue"
+      ],
+      "source_tables": [
+        "PROJECT.sm_transformed_v2.obt_orders"
+      ],
+      "sql": "SELECT DATE(order_processed_at_local_datetime) AS order_date, SUM(order_net_revenue) AS net_revenue FROM `PROJECT.sm_transformed_v2.obt_orders` WHERE is_order_sm_valid = TRUE AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) GROUP BY order_date ORDER BY order_date",
+      "query_metadata": {
+        "dry_run_bytes": 0,
+        "row_count": 2,
+        "freshness_checked_at": "example",
+        "qa_status": "warn"
+      },
+      "data": [
+        {
+          "order_date": "2026-01-01",
+          "net_revenue": 3900
+        },
+        {
+          "order_date": "2026-01-02",
+          "net_revenue": 4200
+        }
+      ],
+      "vega_lite": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+        "width": "container",
+        "height": 280,
+        "mark": {
+          "type": "line",
+          "point": true
+        },
+        "encoding": {
+          "x": {
+            "field": "order_date",
+            "type": "temporal",
+            "title": "Date"
+          },
+          "y": {
+            "field": "net_revenue",
+            "type": "quantitative",
+            "title": "Net Revenue"
+          },
+          "tooltip": [
+            {
+              "field": "order_date",
+              "type": "temporal",
+              "title": "Date"
+            },
+            {
+              "field": "net_revenue",
+              "type": "quantitative",
+              "title": "Net Revenue",
+              "format": "$,.0f"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "tables": [],
+  "notes": [
+    "Example manifest. Replace data, project, dry-run bytes, freshness, and QA metadata before sharing."
+  ]
+}

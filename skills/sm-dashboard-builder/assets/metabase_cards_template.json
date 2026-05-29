@@ -1,0 +1,50 @@
+{
+  "dashboard": {
+    "title": "SourceMedium Dashboard",
+    "description": "Replace with dashboard decision, scope, timeframe, and tenant.",
+    "filters": [
+      {
+        "name": "Date Range",
+        "type": "date_range",
+        "maps_to": [
+          "order_date"
+        ]
+      },
+      {
+        "name": "Store",
+        "type": "category",
+        "maps_to": [
+          "sm_store_id"
+        ]
+      }
+    ],
+    "cards": [
+      {
+        "title": "Net Revenue Trend",
+        "metric_contract_ids": [
+          "net_revenue"
+        ],
+        "visualization": "line",
+        "native_sql": "SELECT DATE(order_processed_at_local_datetime) AS order_date, SUM(order_net_revenue) AS net_revenue FROM `PROJECT.sm_transformed_v2.obt_orders` WHERE is_order_sm_valid = TRUE AND DATE(order_processed_at_local_datetime) BETWEEN {{start_date}} AND {{end_date}} GROUP BY order_date ORDER BY order_date",
+        "field_mappings": {
+          "x": "order_date",
+          "y": "net_revenue"
+        },
+        "layout": {
+          "row": 0,
+          "column": 0,
+          "width": 12,
+          "height": 5
+        },
+        "qa": {
+          "dry_run_bytes": null,
+          "row_count": null,
+          "freshness_checked_at": null,
+          "notes": [
+            "Replace PROJECT and run dry-run before creating the Metabase card."
+          ]
+        }
+      }
+    ]
+  }
+}

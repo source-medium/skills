@@ -65,9 +65,16 @@ GROUP BY sm_channel
 ORDER BY revenue DESC
 
 -- Single channel analysis
-SELECT * FROM `your_project.sm_transformed_v2.obt_orders`
+SELECT
+  DATE(order_processed_at_local_datetime) AS order_date,
+  sm_order_key,
+  order_net_revenue,
+  order_sequence
+FROM `your_project.sm_transformed_v2.obt_orders`
 WHERE is_order_sm_valid = TRUE
   AND sm_channel = 'online_dtc'
+ORDER BY order_processed_at_local_datetime DESC
+LIMIT 100
 ```
 
 Channel values are derived from a hierarchy: exclusion tags → config sheet overrides → default logic (amazon/tiktok_shop/walmart.com → marketplace; pos/leap → retail; wholesale tags → wholesale; otherwise online_dtc).
@@ -87,11 +94,33 @@ Channel values are derived from a hierarchy: exclusion tags → config sheet ove
 | `rpt_ad_performance_daily` | 1 row per channel/date | — | Ad spend, impressions, clicks, conversions |
 | `rpt_cohort_ltv_*` | 1 row per cohort x month x order_line_type | — | LTV analysis (see QUERY_PATTERNS.md) |
 
+## Extended Analysis Tables
+
+Discover availability in `sm_metadata.dim_data_dictionary` before using these.
+
+| Table | Use case |
+|-------|----------|
+| `obt_funnel_event_history` | Event-level funnel, session, page, and attribution-signal analysis |
+| `rpt_funnel_events_performance_hourly` | Aggregated funnel/event monitoring and directional event ratios |
+| `fct_order_attribution_signals` | Order attribution signal debugging and fallback-signal coverage |
+| `obt_customer_support_tickets` | Support ticket volume, channel, lifecycle, agent, and resolution analysis |
+| `obt_inventory_positions` | Current-state inventory visibility and SKU coverage |
+| `fct_returns` / `rpt_order_returns_v1` | Returns analysis; avoid counting return rows as orders |
+| `rpt_outbound_message_performance_daily` | Email/SMS/push campaign and flow performance |
+| `rpt_executive_summary_daily` | Daily KPI rollups for revenue, spend, MER/ROAS, targets, and summary metrics |
+
+## Table Selection Rules
+
+- Start with `obt_*` tables for business-ready analysis.
+- Use `rpt_*` tables for pre-aggregated reporting grains; avoid rebuilding them from raw rows unless the user needs a different grain.
+- Use `dim_*`/`fct_*` tables for lower-grain debugging and custom joins.
+- Use `sm_experimental` for MTA and purchase-journey model questions.
+
 ## Key Column Conventions
 
 | Column | Notes |
 |--------|-------|
-| `sm_store_id` | Store identifier. One value per project. |
+| `sm_store_id` | Store identifier. A project can contain one or more stores. Discover actual values before filtering. |
 | `sm_channel` | Sales channel: `online_dtc`, `amazon`, `tiktok_shop`, etc. |
 | `sm_order_key` | Unique order surrogate key |
 | `sm_customer_key` | Unique customer surrogate key |
@@ -130,9 +159,7 @@ WHERE order_processed_at_local_datetime >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 
 
 ## String Normalization
 
-These columns are automatically standardized (trimmed, lowercased). Use lowercase snake_case values in filters:
-
-`sm_channel`, `sm_default_channel`, `sm_sub_channel`, `sm_order_type`, `subscriber_status`, `sm_order_sales_channel`, `order_source_name`, `order_sequence`, `valid_order_sequence`, `subscription_order_sequence`, `ad_campaign_type`, `ad_campaign_tactic`, `ad_platform_campaign_objective`, `acquisition_order_filter_dimension`, `sm_order_line_type`, `slice`, `filter_name`, `filter_value`, `source_system`, `order_session_browser_type`, `order_processing_method`, `primary_order_payment_gateway`
+Categorical string columns are automatically trimmed and lowercased. Use lowercase snake_case values in filters. When in doubt, run `SELECT DISTINCT <column>` to see actual values before filtering.
 
 ## Discover Schema at Runtime
 

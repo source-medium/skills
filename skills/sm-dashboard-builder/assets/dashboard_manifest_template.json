@@ -1,0 +1,104 @@
+{
+  "title": "SourceMedium Dashboard",
+  "subtitle": "Replace with business question, tenant, scope, and timeframe.",
+  "freshness": "Data freshness not verified yet.",
+  "scope": {
+    "project": "sm-tenant-id",
+    "store": "all stores",
+    "timeframe": "last 30 days",
+    "timezone": "store local datetime"
+  },
+  "metric_contracts": [
+    {
+      "id": "net_revenue",
+      "name": "Net Revenue",
+      "type": "currency",
+      "formula": "SUM(order_net_revenue)",
+      "grain": "order_date",
+      "date_field": "order_processed_at_local_datetime",
+      "source_tables": [
+        "sm-tenant-id.sm_transformed_v2.obt_orders"
+      ],
+      "filters": [
+        "is_order_sm_valid = TRUE",
+        "DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)"
+      ],
+      "additivity": "additive",
+      "caveats": [
+        "Replace template project ID and validate freshness before sharing."
+      ]
+    }
+  ],
+  "kpis": [
+    {
+      "label": "Net Revenue",
+      "value": "$0",
+      "delta": null,
+      "note": "Define metric and timeframe."
+    }
+  ],
+  "charts": [
+    {
+      "id": "revenue_trend",
+      "title": "Revenue Trend",
+      "subtitle": "Last 30 days",
+      "metric_contract_ids": [
+        "net_revenue"
+      ],
+      "source_tables": [
+        "sm-tenant-id.sm_transformed_v2.obt_orders"
+      ],
+      "sql": "SELECT DATE(order_processed_at_local_datetime) AS order_date, SUM(order_net_revenue) AS net_revenue FROM `sm-tenant-id.sm_transformed_v2.obt_orders` WHERE is_order_sm_valid = TRUE AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) GROUP BY order_date ORDER BY order_date",
+      "query_metadata": {
+        "dry_run_bytes": 0,
+        "row_count": 1,
+        "freshness_checked_at": "replace-after-query",
+        "qa_status": "warn"
+      },
+      "data": [
+        {
+          "order_date": "2026-01-01",
+          "net_revenue": 0
+        }
+      ],
+      "vega_lite": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+        "width": "container",
+        "height": 280,
+        "mark": {
+          "type": "line",
+          "point": true
+        },
+        "encoding": {
+          "x": {
+            "field": "order_date",
+            "type": "temporal",
+            "title": "Date"
+          },
+          "y": {
+            "field": "net_revenue",
+            "type": "quantitative",
+            "title": "Net Revenue"
+          },
+          "tooltip": [
+            {
+              "field": "order_date",
+              "type": "temporal",
+              "title": "Date"
+            },
+            {
+              "field": "net_revenue",
+              "type": "quantitative",
+              "title": "Net Revenue",
+              "format": "$,.0f"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "tables": [],
+  "notes": [
+    "Replace template data with executed query results before sharing."
+  ]
+}

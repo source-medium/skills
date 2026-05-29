@@ -1,0 +1,8 @@
+interface:
+  display_name: "SourceMedium BigQuery Analyst"
+  short_description: "Analyze SourceMedium BigQuery safely"
+  brand_color: "#1F6FEB"
+  default_prompt: "Use $sm-bigquery-analyst to verify my SourceMedium BigQuery access, discover available tables and metrics, then answer my warehouse question with a SQL receipt."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,68 @@
+{
+  "skill_name": "sm-bigquery-analyst",
+  "trigger_evals": [
+    {
+      "prompt": "What was my revenue by channel last month in our SourceMedium BigQuery project?",
+      "should_trigger": true,
+      "expected": "Uses the skill because the request asks for SourceMedium BigQuery analysis and should produce safe SQL with a receipt."
+    },
+    {
+      "prompt": "Help me connect Claude Code to my sm-acme BigQuery warehouse and confirm I can query SourceMedium tables.",
+      "should_trigger": true,
+      "expected": "Uses the skill because the request is setup and access verification for SourceMedium BigQuery."
+    },
+    {
+      "prompt": "Join my inventory snapshots table to SM order lines so I can see low-stock SKUs with recent sales.",
+      "should_trigger": true,
+      "expected": "Uses the skill because the request mixes operator-owned warehouse data with SourceMedium metrics."
+    },
+    {
+      "prompt": "Create a dbt model that materializes daily revenue by channel.",
+      "should_trigger": false,
+      "expected": "Does not use the skill because dbt authoring is out of scope."
+    },
+    {
+      "prompt": "Write Terraform to grant BigQuery permissions for my analytics team.",
+      "should_trigger": false,
+      "expected": "Does not use the skill because infrastructure provisioning is out of scope."
+    }
+  ],
+  "output_evals": [
+    {
+      "prompt": "What was revenue by channel over the last 30 days?",
+      "expected": "Returns a concise answer plus SQL receipt. SQL uses obt_orders, order_net_revenue, is_order_sm_valid = TRUE, local datetime date filtering, fully qualified tables, dry-run evidence, and notes with timeframe/grain/timezone."
+    },
+    {
+      "prompt": "Show customer LTV by monthly cohort for the first year.",
+      "expected": "Uses an rpt_cohort_ltv table and filters sm_order_line_type to exactly one value, usually all_orders, before reporting LTV."
+    },
+    {
+      "prompt": "Combine my support tickets with SourceMedium customers to compare ticket volume by subscriber status.",
+      "expected": "Requires custom table documentation, identifies PII, hashes email if needed, pre-aggregates support tickets before joining, and avoids exposing raw PII."
+    },
+    {
+      "prompt": "Why did my TikTok revenue return zero rows last week?",
+      "expected": "Before concluding no data exists, checks table freshness, date range, store filter, and actual categorical values for the relevant channel/source fields."
+    },
+    {
+      "prompt": "Why does gross revenue not match net revenue for the last 30 days?",
+      "expected": "Explains SourceMedium revenue fields, notes discounts/refunds are usually negative or zero, uses is_order_sm_valid = TRUE, and returns a sanity-check SQL receipt."
+    },
+    {
+      "prompt": "Our channel mix looks wrong. Why is everything online_dtc?",
+      "expected": "Uses channel mapping diagnostics including sm_channel, sm_sub_channel, sm_default_channel, sales-channel inputs, UTMs, discount codes, and actual value distributions before concluding."
+    },
+    {
+      "prompt": "Show subscription revenue by first vs recurring subscription orders.",
+      "expected": "Chooses obt_orders for order-level subscription trends, uses is_subscription_order and subscription_order_sequence, and explains when obt_order_lines would be needed instead."
+    },
+    {
+      "prompt": "What is TikTok CPC and CTR by campaign type?",
+      "expected": "Uses rpt_ad_performance_daily, groups by source_system/ad_campaign_type, and warns or filters gmv_max when calculating ordinary TikTok Ads CPC/CTR/CPM."
+    },
+    {
+      "prompt": "Calculate MER and CAC for last month.",
+      "expected": "Resolves metric aliases through dim_semantic_metric_catalog when possible, identifies MER as revenue/ad spend and CAC/CPA as ad spend/new customers, and states chosen metric definitions."
+    }
+  ]
+}
