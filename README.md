@@ -33,6 +33,7 @@ My first question is: [ASK YOUR QUESTION]
 ```bash
 npx skills add source-medium/skills --skill sm-bigquery-analyst
 npx skills add source-medium/skills --skill sm-dashboard-builder
+npx skills add source-medium/skills --skill sm-pipeline-builder
 ```
 
 Repo-local commands below assume you are in this repository root.
@@ -45,6 +46,7 @@ with:
 ```bash
 npx skills update sm-bigquery-analyst -y
 npx skills update sm-dashboard-builder -y
+npx skills update sm-pipeline-builder -y
 ```
 
 To update project-scoped or global skills explicitly:
@@ -71,11 +73,13 @@ For agents that support the Agent Skills open format, copy
 mkdir -p .claude/skills
 cp -R skills/sm-bigquery-analyst .claude/skills/
 cp -R skills/sm-dashboard-builder .claude/skills/
+cp -R skills/sm-pipeline-builder .claude/skills/
 
 # Personal skill
 mkdir -p ~/.claude/skills
 cp -R skills/sm-bigquery-analyst ~/.claude/skills/
 cp -R skills/sm-dashboard-builder ~/.claude/skills/
+cp -R skills/sm-pipeline-builder ~/.claude/skills/
 ```
 
 Codex/OpenAI-compatible clients can also read the packaged `agents/openai.yaml`
@@ -87,6 +91,7 @@ metadata when their skill registry supports it.
 |-------|-------------|
 | `sm-bigquery-analyst` | Query SourceMedium BigQuery safely, discover warehouse metadata, and join operator-owned tables with SourceMedium metrics. |
 | `sm-dashboard-builder` | Build accurate BI dashboards from SourceMedium BigQuery data, defaulting to portable HTML with SQL receipts and renderer-appropriate charts. |
+| `sm-pipeline-builder` | Spec, build, validate, and operate bespoke data pipelines that land in customer-owned BigQuery datasets alongside SourceMedium data, or publish those tables back out to a system you own. |
 
 ## After Installing
 
@@ -141,6 +146,17 @@ For hybrid analysis, add a project-local `sourcemedium_custom_data.md` describin
 your own tables' grain, join keys, date coverage, owner/source, caveats, and PII
 columns before asking the agent to join them to SourceMedium data.
 
+For bespoke pipeline work, ask:
+
+```
+Build a nightly pipeline that ingests our loyalty platform into our own
+BigQuery datasets and joins point liability to SourceMedium revenue.
+```
+
+The pipeline skill writes a validated pipeline spec first (grain, keys,
+cursor, windows, checks), then builds, validates with a canary plus
+source-parity totals, and hands over a readiness checklist.
+
 ## What a New Agent Needs to Know
 
 SourceMedium data is already modeled for analysis. A cold coding agent should not
@@ -194,6 +210,10 @@ python skills/sm-bigquery-analyst/scripts/qa_sm_bigquery_skill.py --project sm-d
 
 The harness validates package shape, script syntax, help output, unsafe-SQL
 rejection, optional live metadata discovery, dry-runs, and cost-cap blocking.
+`--project` here is a connectivity and schema smoke test, so the demo
+warehouse is fine for it. Do not use the demo warehouse to check whether an
+answer is *correct* — its values are obfuscated. Validate numbers against a
+real tenant warehouse instead.
 
 For dashboard package QA:
 
@@ -207,8 +227,25 @@ python skills/sm-dashboard-builder/scripts/build_dashboard_html.py \
   --out /tmp/sm-dashboard.html
 ```
 
+For pipeline package QA:
+
+```bash
+python skills/sm-pipeline-builder/scripts/qa_sm_pipeline_skill.py
+python skills/sm-pipeline-builder/scripts/validate_pipeline_spec.py \
+  skills/sm-pipeline-builder/assets/pipeline_spec_template.yaml \
+  --strict
+```
+
+The harness covers package shape, reference routing, a credential scan over
+the package, and the spec validator's full accept/reject matrix. It also
+fuzzes every path in the spec template with every wrong type, so a missing
+shape guard fails QA here instead of surfacing as a traceback in front of an
+operator. When writing a real pipeline, validate your per-pipeline spec copy,
+not the shipped template.
+
 ## Documentation
 
 - [Agent Skills Overview](https://docs.sourcemedium.com/ai-analyst/agent-skills)
 - [SM BigQuery Analyst](https://docs.sourcemedium.com/ai-analyst/agent-skills/sm-bigquery-analyst)
+- [SM Dashboard Builder](https://docs.sourcemedium.com/ai-analyst/agent-skills/sm-dashboard-builder)
 - [BigQuery Access Request Template](https://docs.sourcemedium.com/ai-analyst/agent-skills/bigquery-access-request-template)

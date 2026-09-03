@@ -1,0 +1,8 @@
+interface:
+  display_name: "SourceMedium Pipeline Builder"
+  short_description: "Build bespoke BigQuery pipelines next to SourceMedium data"
+  brand_color: "#1F6FEB"
+  default_prompt: "Use $sm-pipeline-builder to spec, build, validate, and operate a bespoke data pipeline that lands in my own BigQuery datasets alongside SourceMedium data."
+
+policy:
+  allow_implicit_invocation: true

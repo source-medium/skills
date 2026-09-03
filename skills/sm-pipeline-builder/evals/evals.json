@@ -1,0 +1,82 @@
+{
+  "examples": [
+    {
+      "prompt": "Ingest our NetSuite financials into BigQuery every night so we can join actuals to SourceMedium revenue by month.",
+      "should_trigger": true,
+      "expectations": [
+        "writes a pipeline spec with grain, primary key, cursor, and overlap",
+        "lands raw payloads before modeling and writes to customer-owned datasets",
+        "validates with a canary plus source-parity totals before full history"
+      ]
+    },
+    {
+      "prompt": "Build a dbt mart that joins our warehouse inventory snapshots to SourceMedium orders by store and week.",
+      "should_trigger": true,
+      "expectations": [
+        "treats dbt over the customer's own tables as in scope, not as SourceMedium-internal dbt work",
+        "checks join cardinality before joining to order revenue",
+        "joins on the source-platform order id scoped by sm_store_id, never on sm_order_key",
+        "applies validity flags and resolves metrics via the catalog",
+        "declares freshness gated on SourceMedium publish, not assumed partitions"
+      ]
+    },
+    {
+      "prompt": "Backfill my custom loyalty pipeline for all of 2023 after fixing the cursor bug, in checkpointed windows.",
+      "should_trigger": true,
+      "expectations": [
+        "declares window, owner, resume point, and a spend ceiling before running",
+        "sizes chunks against the partition-modification quota",
+        "verifies target-table coverage per window after the refill",
+        "never marks the campaign complete on a zero-row run"
+      ]
+    },
+    {
+      "prompt": "Our ad platform recomputes the last 14 days and drops rows that go to zero. How should the daily spend table load?",
+      "should_trigger": true,
+      "expectations": [
+        "picks append_restate over merge because rows can vanish, not just change",
+        "names the window column so the fetch window and the delete window are identical",
+        "declares restatement_days from the measured revision horizon"
+      ]
+    },
+    {
+      "prompt": "Publish our customer-owned margin table out of BigQuery into our Snowflake instance every night for finance.",
+      "should_trigger": true,
+      "expectations": [
+        "declares an external destination with the target system and the PII crossing the boundary",
+        "states the target-side write semantics and proves a single-window rerun is a no-op",
+        "does not publish a SourceMedium metric name with a redefined calculation"
+      ]
+    },
+    {
+      "prompt": "What was my revenue by channel last month?",
+      "should_trigger": false,
+      "expectations": [
+        "SELECT-only analysis belongs to sm-bigquery-analyst"
+      ]
+    },
+    {
+      "prompt": "Build an HTML executive dashboard for net revenue and MER.",
+      "should_trigger": false,
+      "expectations": [
+        "dashboard rendering belongs to sm-dashboard-builder"
+      ]
+    },
+    {
+      "prompt": "Fix our managed SMETL Klaviyo pipeline that stopped loading profiles.",
+      "should_trigger": false,
+      "expectations": [
+        "SourceMedium's own managed pipelines are outside this customer-side skill",
+        "routes managed-connector incidents to SourceMedium support"
+      ]
+    },
+    {
+      "prompt": "Add a column to the sm_transformed_v2.obt_orders table so our team can store an internal flag.",
+      "should_trigger": false,
+      "expectations": [
+        "never writes to sm_* datasets, which SourceMedium rebuilds",
+        "offers a customer-owned table joined on the order key instead"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+# Bespoke pipeline spec. Copy this file per pipeline (do not edit it in place),
+# replace every example value with behavior MEASURED against the live source
+# (bounded probe first), and validate the COPY:
+#   python scripts/validate_pipeline_spec.py specs/<your-pipeline>.yaml
+#   python scripts/validate_pipeline_spec.py specs/<your-pipeline>.yaml --strict
+# See references/PIPELINE_DESIGN.md. Never commit credential VALUES here,
+# only secret names (see source.auth_secret) — the validator rejects values
+# that look live.
+
+pipeline: loyalty-nightly
+owner: data-engineering
+description: Nightly extract of the loyalty platform into our warehouse.
+
+source:
+  name: loyalty-platform-api
+  kind: rest_api
+  auth_secret: LOYALTY_API_KEY_PROD
+  auth_failure_mode: 401 refresh via OAuth rotation by data-engineering; page on first occurrence
+  pagination:
+    mechanism: cursor
+    stop_condition: empty page
+  rate_limit:
+    model: daily_budget
+    value: 200 requests/day
+  history_limit: 2021-01-01
+
+destination:
+  # kind: bigquery (default) writes tables; kind: external publishes out of
+  # BigQuery into a system you own, and then requires `system` and `pii`.
+  kind: bigquery
+  project: my-bq-project
+  dataset_raw: loyalty_raw
+  dataset_clean: loyalty_clean
+  dataset_marts: loyalty_marts
+
+streams:
+  # --- snapshot: small reference table, reloaded in full each run ---
+  - name: members
+    entity: loyalty member
+    grain: [member_id]
+    primary_key: [member_id]
+    load:
+      mode: snapshot
+    # Snapshot streams reload fully each run; keep them small or cadence-gate them.
+    bootstrap_window: 2024-12-01/2024-12-31 (initial validation window; snapshot reloads fully each run)
+    deletes: full reload each run — deletes disappear on the next snapshot
+    partition: _synced_at
+    coverage_check: row-count floor per run
+
+  # --- merge: append-and-update stream keyed on a stable natural key ---
+  - name: point_transactions
+    entity: loyalty point movement
+    grain: [member_id, transaction_id]
+    primary_key: [member_id, transaction_id]
+    load:
+      mode: merge
+    incremental:
+      cursor_field: updated_at
+      overlap: 48h
+    restatement_days: 7
+    bootstrap_window: 2024-12-01/2024-12-31
+    deletes: hard-deletes invisible at source (no tombstone) — downstream must know
+    business_date_close:
+      zone_source: account_timezone
+      fallback_offset_hours: -8
+    money_fields:
+      - name: points_value_usd
+        unit: decimal_dollars
+        scale: 4
+    partition: transaction_date
+    coverage_check: business-date coverage over trailing 90 days
+
+  # --- append_restate: provider-recomputed daily aggregate whose rows can both
+  # change AND vanish. MERGE would leave vanished rows behind forever, so this
+  # mode deletes and re-inserts the window named by incremental.window_column.
+  # campaign_id is NULL on unattributed rows, so the merge/PK key is a declared
+  # surrogate hashed over the grain — NULL keys never match (see INCREMENTAL.md).
+  - name: daily_engagement
+    entity: provider-computed daily engagement rollup
+    grain: [report_date, member_segment, campaign_id]
+    primary_key: [engagement_key]
+    surrogate_key:
+      name: engagement_key
+      from: [report_date, member_segment, campaign_id]
+    load:
+      mode: append_restate
+    incremental:
+      window_column: report_date
+    restatement_days: 14
+    bootstrap_window: 2024-12-01/2024-12-31
+    deletes: provider drops rows on recompute — window DELETE + INSERT, never MERGE
+    business_date_close:
+      zone_source: account_timezone
+      fallback_offset_hours: -8
+    partition: report_date
+    coverage_check: business-date coverage over trailing 90 days, no gaps inside history limit
+
+quality:
+  freshness_sla: 26h after source close
+  checks:
+    - pk uniqueness on every table
+    - pk columns not-null on every table
+    - source parity sample quarterly (spend, counts vs vendor UI)
+
+cost:
+  # Bound the write side, not just the read side. A backfill without a ceiling
+  # discovers the source's history limit and your billing limit at the same time.
+  backfill_max_windows_per_run: 30
+  query_max_bytes_billed: 20GB
+  alert_when: pipeline bytes scanned exceeds 2x trailing-week median

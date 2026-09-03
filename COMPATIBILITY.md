@@ -10,6 +10,7 @@ Use the `skills` CLI when available:
 ```bash
 npx skills add source-medium/skills --skill sm-bigquery-analyst
 npx skills add source-medium/skills --skill sm-dashboard-builder
+npx skills add source-medium/skills --skill sm-pipeline-builder
 ```
 
 Update installed copies with:
@@ -17,6 +18,7 @@ Update installed copies with:
 ```bash
 npx skills update sm-bigquery-analyst -y
 npx skills update sm-dashboard-builder -y
+npx skills update sm-pipeline-builder -y
 ```
 
 Use `--project` or `--global` when the agent supports both scopes and you need
@@ -31,6 +33,7 @@ the skill directory into the agent's configured skill path:
 mkdir -p .claude/skills
 cp -R skills/sm-bigquery-analyst .claude/skills/
 cp -R skills/sm-dashboard-builder .claude/skills/
+cp -R skills/sm-pipeline-builder .claude/skills/
 ```
 
 To update a copied skill, replace the copied folder with the latest folder from
@@ -47,6 +50,10 @@ When live demo BigQuery access is available:
 ```bash
 python scripts/qa_all_skills.py --project sm-democo
 ```
+
+This exercises connectivity, metadata discovery, dry-runs, and cost caps.
+The demo warehouse's values are obfuscated, so never use it to confirm that
+a number or metric definition is correct — use a real tenant warehouse.
 
 ## Agent Notes
 

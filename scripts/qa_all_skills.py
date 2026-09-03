@@ -107,10 +107,20 @@ def package_specific_qa(project: str | None) -> None:
             cmd.extend(["--project", project])
         run(cmd)
 
+    pipeline_qa = SKILLS_DIR / "sm-pipeline-builder" / "scripts" / "qa_sm_pipeline_skill.py"
+    if pipeline_qa.exists():
+        run([sys.executable, str(pipeline_qa)])
+
+    pipeline_validator = SKILLS_DIR / "sm-pipeline-builder" / "scripts" / "validate_pipeline_spec.py"
+    pipeline_template = SKILLS_DIR / "sm-pipeline-builder" / "assets" / "pipeline_spec_template.yaml"
+    if pipeline_validator.exists():
+        run([sys.executable, str(pipeline_validator), str(pipeline_template), "--strict"])
+
 
 def skill_cli_discovery() -> None:
     run(["npx", "skills", "add", ".", "--skill", "sm-bigquery-analyst", "--list"], cwd=ROOT)
     run(["npx", "skills", "add", ".", "--skill", "sm-dashboard-builder", "--list"], cwd=ROOT)
+    run(["npx", "skills", "add", ".", "--skill", "sm-pipeline-builder", "--list"], cwd=ROOT)
 
 
 def cleanup_python_cache() -> None:
