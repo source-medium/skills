@@ -248,4 +248,5 @@ not the shipped template.
 - [Agent Skills Overview](https://docs.sourcemedium.com/ai-analyst/agent-skills)
 - [SM BigQuery Analyst](https://docs.sourcemedium.com/ai-analyst/agent-skills/sm-bigquery-analyst)
 - [SM Dashboard Builder](https://docs.sourcemedium.com/ai-analyst/agent-skills/sm-dashboard-builder)
+- [SM Pipeline Builder](https://docs.sourcemedium.com/ai-analyst/agent-skills/sm-pipeline-builder)
 - [BigQuery Access Request Template](https://docs.sourcemedium.com/ai-analyst/agent-skills/bigquery-access-request-template)
