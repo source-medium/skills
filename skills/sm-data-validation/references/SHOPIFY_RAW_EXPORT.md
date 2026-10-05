@@ -24,14 +24,18 @@ These definitions are Shopify's. They decide what you can compare to what.
   shows up as its own row with gross 0 and `orders` 0.
 - **Net sales** = gross sales + discounts + sales reversals.
 - **Shipping charges**, **taxes**, **duties**, **additional fees**: separate
-  columns, each net of their own refunds.
+  columns (`shipping_charges`, `taxes`, `duties`, `additional_fees`, all
+  verified 2026-10-05), each net of their own refunds. On a reversal row the
+  tax column goes negative too.
 - **Total sales** = net sales + shipping + taxes + duties + additional fees.
 - **Day** = the order's processed time in the store's timezone
   (Settings > General > Standards and formats). Not created time.
-- Test orders are excluded. Draft orders appear once completed. Cancelled
-  orders keep their original sale and show the cancellation as a return when
-  money was returned; verify on one known cancelled order for the store
-  before relying on this, because gateway and timing details vary.
+- Test orders are excluded. Draft orders appear once completed. A cancelled
+  order keeps its gross sale and gets a `sales_reversals` of the same amount,
+  so it reports net 0 with `orders` = 1 (verified 2026-10-05 on POS and online
+  cancellations, refunded and voided alike). SourceMedium marks the same
+  order `is_order_sm_valid = FALSE` with the refund attached, so the two
+  sides differ by one order and zero net.
 - `WHERE is_pos_sale = false` is valid ShopifyQL, and it is the filter behind
   most POS-excluded dashboard figures. This skill never puts it, or any other
   filter, on the export: the comparison is every order against every order,
@@ -42,7 +46,7 @@ SourceMedium's `obt_orders` equivalents, with the sign convention matching:
 | ShopifyQL `sales` | `obt_orders` | Note |
 |---|---|---|
 | `order_id` | `order_id` | Shopify numeric id; SM stores it as a string |
-| `order_name` | `order_name` | `#1001` style; fallback match key |
+| `order_name` | `order_name` | `#1001` style; fallback match key only. Names repeat across a brand's stores with different ids, so never match on name across stores |
 | `day` | `DATE(order_processed_at_local_datetime)` | only equal when the two store timezones agree |
 | `gross_sales` | `order_gross_revenue` | |
 | `discounts` | `order_discounts` | both negative |
@@ -75,13 +79,19 @@ FROM sales
   figure came from a POS-excluded report, reproduce that figure with the
   comparator's `--basis exclude-pos` flag; the order-level verdict always
   comes from the unfiltered run.
-- The default row cap is 1,000. `LIMIT 100000` lifts it. If the store does
-  more than that in the window, split the window.
+- Always export; never read the on-screen table as the dataset. The page
+  renders a capped preview (it said "shows up to 1,436 rows" on a Plus store)
+  and tells you to export for the rest. `LIMIT 100000` is accepted and keeps
+  the export from stopping at the default cap; if a window has more orders
+  than that, split the window.
 - Verified 2026-10-05 against a live store: the query runs as written and
   returns order-grain rows. `sale_kind` is not a column (the editor offers
   `sale_id`), so return-only rows are recognized by `orders` = 0 rather than
-  by a kind dimension. If a future editor rejects a name, use its
-  autocomplete; that list is authoritative for the store.
+  by a kind dimension. `TIMESERIES day` also emits a placeholder row per day
+  with no data (`Order ID` and `Order name` read `None`, all amounts 0); the
+  comparator drops those. `WHERE order_name = '#1001' OR order_name = ...`
+  works for spot checks of specific orders. If a future editor rejects a
+  name, use its autocomplete; that list is authoritative for the store.
 
 ### Sales by day (layer 2 cross-check)
 

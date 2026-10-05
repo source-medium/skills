@@ -43,17 +43,20 @@ Orders page export does not. Compare on processed time or accept the drift.
 
 ## 3. Valid-order definition
 
-**Looks like:** Shopify counts more orders and more gross; SM's missing
-orders are cancelled, voided, fully refunded, declined, or test.
+**Looks like:** Shopify counts more orders; SM's missing orders are
+cancelled, voided, fully refunded, declined, or test. A cancelled order
+contributes an order to Shopify's count but zero net (gross sale plus an
+equal reversal), so counts drift while net may not.
 
 **Detect:** comparator class `sm-invalid`. For each, `order_cancelled_at`
 and `order_cancellation_reason` in the SM extract explain most; Shopify's
 `Financial Status` (Orders CSV) explains the rest.
 
 **Say:** `is_order_sm_valid` deliberately removes orders that are not real
-sales. Shopify Analytics keeps the sale and books a return later. Over a
-long window the net effect converges; in a short window it does not. Both
-tools are applying their own definition correctly. If the operator wants Shopify's
+sales. Shopify Analytics keeps the sale and books an equal reversal. When
+the reversal lands in the same window the net agrees and only the count
+differs; when it lands later, net differs too until the window contains
+both. Both tools are applying their own definition correctly. If the operator wants Shopify's
 convention, they can query SM without the validity filter; say what that
 would include.
 
@@ -62,7 +65,8 @@ would include.
 **Looks like:** SM lower than Shopify by a stable share; or the reverse when
 the Shopify report excluded POS and the SM query did not.
 
-**Detect:** comparator class `sm-channel` (`draft_orders`, `excluded`). POS
+**Detect:** comparator class `sm-channel` (`draft_orders`, `excluded`,
+`exchanged`; these rows are also invalid in SM). POS
 orders match on both sides in the default run; `channel-basis` appears only
 when `--basis exclude-pos` was used to reproduce a POS-excluded figure.
 Check the config: the
@@ -81,8 +85,8 @@ shows negative returns on days with no corresponding SM movement.
 **Detect:** comparator classes `refund-attribution` (same order, refund on
 one side only) and `prior-period-return` (a Shopify row with `orders` = 0,
 the refund of an order sold before the window). Compare `order_refunds`
-with Shopify `sales_reversals` for those order ids; look at `latest_refund_date` in
-`obt_orders` if more detail is needed.
+with Shopify `sales_reversals` for those order ids; the refund day itself is
+visible on the Shopify side (the row's `day`), not in `obt_orders`.
 
 **Say:** Shopify books a return on the refund day; SM restates the original
 order. A week that contains refunds of earlier orders will always differ on
@@ -110,7 +114,8 @@ overlap but ids do not.
 
 **Detect:** `SELECT DISTINCT sm_store_id` in the SM project versus the
 Shopify handle that produced the export. Multi-store tenants and agencies
-hit this.
+hit this. Order names repeat across a brand's stores with different ids,
+so a name-level match can look fine while the ids disagree.
 
 **Say:** the export and the extract are from different stores. Redo with
 the right pair. Never continue a comparison across stores.

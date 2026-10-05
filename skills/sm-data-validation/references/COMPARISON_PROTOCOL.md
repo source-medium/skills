@@ -24,8 +24,8 @@ source report and the right SourceMedium columns.
 |---|---|---|---|
 | Timezone | store timezone (Settings > General) | SourceMedium's configured store timezone, baked into `*_local_datetime` | compare the two; if they differ, re-bucket SM by `DATETIME(order_processed_at, '<shopify tz>')` |
 | Timestamp | order processed time | `order_processed_at` / `_local_datetime` (not `order_created_at`) | use processed on both sides |
-| Valid order | includes cancelled orders (sale plus later return), excludes test orders | `is_order_sm_valid` excludes voided, cancelled, uncollectible, draft, fully refunded, fraud/declined | pull SM unfiltered, classify invalid rows as their own cause |
-| Channel scope | every channel; the export is never filtered | `sm_channel` buckets: `online_dtc`, `retail` (POS), `marketplace`, `wholesale`, `draft_orders`, `excluded` | compare every order; POS matches like any other, `draft_orders` and `excluded` rows are classified |
+| Valid order | includes cancelled orders (gross sale plus an equal `sales_reversals`, net 0, `orders` 1), excludes test orders | `is_order_sm_valid` excludes voided, cancelled, uncollectible, draft, fully refunded, fraud/declined | pull SM unfiltered, classify invalid rows as their own cause |
+| Channel scope | every channel; the export is never filtered | `sm_channel` buckets such as `online_dtc`, `retail` (POS), `wholesale`, marketplace values, and the non-sale buckets `draft_orders`, `excluded`, `exchanged` (always invalid) | compare every order; POS matches like any other, the non-sale buckets are classified as `sm-channel` |
 | Currency | store currency (presentment converted) | `order_*` columns are canonical currency; `order_original_*` are as-charged | compare `order_*`; if the store currency differs from the SM canonical currency, use `order_original_*` |
 | Refund attribution | `sales_reversals` booked on the refund day; attached to the original `order_id` at order grain | `order_refunds` attached to the original order and its processed day | compare at order grain; expect by-day drift |
 | Shipping / tax | `shipping_charges`, `taxes` separate from net | `order_net_shipping`, `order_total_taxes` separate from net | compare net first, then total |
@@ -70,6 +70,14 @@ WHERE source_system = '<discovered shopify value>'
       BETWEEN DATE_SUB(DATE '<start>', INTERVAL 2 DAY)
           AND DATE_ADD(DATE '<end>',   INTERVAL 2 DAY)
 ORDER BY order_processed_at
+```
+
+On Windows the analyst helper cannot spawn `bq.cmd` from Python (it exits
+with a file-not-found error), so run the same SQL with `bq` directly; the
+comparator reads both outputs the same way:
+
+```bash
+bq -q query --use_legacy_sql=false --format=csv --max_rows=100000 \n  --maximum_bytes_billed=1073741824 "$(cat sm_extract.sql)" > sm_orders.csv
 ```
 
 Rules for this extract:
@@ -207,7 +215,7 @@ says so.
 | `gross-delta` | gross differs | order edit, line basis, gift card product, tip |
 | `shipping-tax-delta` | net equal, total differs | shipping or tax inclusion |
 | `sm-invalid` | Shopify counts it, SM marks it invalid | validity definition |
-| `sm-channel` | Shopify counts it, SM buckets it `excluded` or `draft_orders` | channel scope |
+| `sm-channel` | Shopify counts it, SM buckets it `excluded`, `draft_orders`, or `exchanged` | channel scope |
 | `channel-basis` | set aside by `--basis exclude-pos` only | none, by construction |
 | `missing-in-sm` | Shopify has the order, SM has no row | freshness, load gap, store mapping |
 | `unexplained-sm-only` | SM has a valid in-scope order Shopify did not export | export filter, store mismatch |

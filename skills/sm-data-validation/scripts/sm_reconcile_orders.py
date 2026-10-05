@@ -84,7 +84,7 @@ SM_ALIASES: Dict[str, Tuple[str, ...]] = {
     "total": ("order_total_revenue",),
 }
 
-SM_EXCLUDED_CHANNELS = {"excluded", "draft_orders"}
+SM_EXCLUDED_CHANNELS = {"excluded", "draft_orders", "exchanged"}
 SM_POS_CHANNELS = {"retail"}
 SHOPIFY_POS_SOURCES = {"pos", "point of sale", "point_of_sale"}
 
@@ -262,8 +262,9 @@ def detect_shopify_format(cols: Dict[str, str], headers: List[str]) -> str:
 
 
 def is_totals_row(order_id: str, order_name: str) -> bool:
+    """Totals rows, and the placeholder rows TIMESERIES emits for days with no data (id "None")."""
     ident = (order_id or order_name or "").strip().lower()
-    return ident in {"", "total", "totals", "grand total"}
+    return ident in {"", "total", "totals", "grand total", "none", "null"}
 
 
 def make_key(order_id: str, order_name: str) -> str:
@@ -675,10 +676,10 @@ def run(args: argparse.Namespace) -> int:
                 effect = -sh.amount("net")
                 if return_only(sh):
                     final_cls = "prior-period-return"
-                elif not smr.valid:
-                    final_cls = "sm-invalid"
                 elif smr.channel in SM_EXCLUDED_CHANNELS:
                     final_cls = "sm-channel"
+                elif not smr.valid:
+                    final_cls = "sm-invalid"
                 elif basis_pos and smr.channel in SM_POS_CHANNELS:
                     final_cls = "channel-basis"
                 else:
@@ -728,10 +729,10 @@ def run(args: argparse.Namespace) -> int:
             assert smr is not None
             if not sm_in[key]:
                 continue
-            if not smr.valid:
-                cls, effect = "sm-invalid-unmatched", ZERO
-            elif smr.channel in SM_EXCLUDED_CHANNELS:
+            if smr.channel in SM_EXCLUDED_CHANNELS:
                 cls, effect = "sm-channel-unmatched", ZERO
+            elif not smr.valid:
+                cls, effect = "sm-invalid-unmatched", ZERO
             elif basis_pos and smr.channel in SM_POS_CHANNELS:
                 cls, effect = "channel-basis", ZERO
             else:
@@ -864,7 +865,7 @@ def run(args: argparse.Namespace) -> int:
     if "day-shift" in attributions:
         hints.append("`day-shift` present: run the store timezone offset check; retry with `--shopify-utc-offset` to test it.")
     if "sm-invalid" in attributions:
-        hints.append("`sm-invalid` present: these are counted by Shopify and excluded by `is_order_sm_valid` (cancelled/voided/test/fully refunded). Definition, not defect.")
+        hints.append("`sm-invalid` present: Shopify counts the order (a cancelled order keeps its gross sale and books an equal sales_reversals, so its net is 0 but orders = 1); `is_order_sm_valid` excludes it. Definition, not defect.")
     if "refund-attribution" in attributions:
         hints.append("`refund-attribution` present: Shopify books returns on the refund day; SM restates the order. Expected at by-day grain.")
     if "prior-period-return" in attributions:
