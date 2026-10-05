@@ -1,8 +1,0 @@
-FROM sales
-  SHOW gross_sales, discounts, returns, net_sales, shipping_charges, taxes, total_sales, orders
-  WHERE is_pos_sale = false
-  GROUP BY order_id, order_name
-  TIMESERIES day
-  SINCE {{start_minus_1}} UNTIL {{end_plus_1}}
-  ORDER BY day ASC
-  LIMIT 100000

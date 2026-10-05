@@ -17,9 +17,12 @@ These definitions are Shopify's. They decide what you can compare to what.
   shipping, taxes, duties, tips, and gift card product sales (gift cards are
   reported as their own sale kind, not as gross sales).
 - **Discounts** = line and order discounts, **negative**.
-- **Returns** = refunded product value, **negative**, booked on the day the
-  refund happened. At order grain it attaches to the original order id.
-- **Net sales** = gross sales + discounts + returns.
+- **Sales reversals** (`sales_reversals`; the older name `returns` still runs
+  but the editor flagged it deprecated on 2026-10-05) = refunded product
+  value, **negative**, booked on the day the refund happened under the
+  original order id. A refund of an order sold before the window therefore
+  shows up as its own row with gross 0 and `orders` 0.
+- **Net sales** = gross sales + discounts + sales reversals.
 - **Shipping charges**, **taxes**, **duties**, **additional fees**: separate
   columns, each net of their own refunds.
 - **Total sales** = net sales + shipping + taxes + duties + additional fees.
@@ -29,8 +32,10 @@ These definitions are Shopify's. They decide what you can compare to what.
   orders keep their original sale and show the cancellation as a return when
   money was returned; verify on one known cancelled order for the store
   before relying on this, because gateway and timing details vary.
-- `is_pos_sale = false` removes POS orders only. Draft and manually created
-  orders remain.
+- `WHERE is_pos_sale = false` is valid ShopifyQL, and it is the filter behind
+  most POS-excluded dashboard figures. This skill never puts it, or any other
+  filter, on the export: the comparison is every order against every order,
+  and scope differences are classified by the comparator afterwards.
 
 SourceMedium's `obt_orders` equivalents, with the sign convention matching:
 
@@ -41,12 +46,12 @@ SourceMedium's `obt_orders` equivalents, with the sign convention matching:
 | `day` | `DATE(order_processed_at_local_datetime)` | only equal when the two store timezones agree |
 | `gross_sales` | `order_gross_revenue` | |
 | `discounts` | `order_discounts` | both negative |
-| `returns` | `order_refunds` | both negative; SM attaches to the order, so by-day views drift |
+| `sales_reversals` | `order_refunds` | both negative; Shopify books on the refund day, SM on the order, so by-day views drift |
 | `net_sales` | `order_net_revenue` | gross + discounts + refunds on both sides |
 | `shipping_charges` | `order_net_shipping` | |
 | `taxes` | `order_total_taxes` | |
 | `total_sales` | `order_total_revenue` | compare only after net matches |
-| `orders` | `COUNT(*)` | Shopify counts a return row as 0 orders |
+| `orders` | `COUNT(*)` | 0 on a return-only row; the comparator uses this to recognize prior-period refunds |
 
 ## ShopifyQL queries
 
@@ -56,7 +61,7 @@ Files live in `assets/shopifyql/`. Replace the dates; keep the padding.
 
 ```
 FROM sales
-  SHOW gross_sales, discounts, returns, net_sales, shipping_charges, taxes, total_sales, orders
+  SHOW gross_sales, discounts, sales_reversals, net_sales, shipping_charges, taxes, total_sales, orders
   GROUP BY order_id, order_name
   TIMESERIES day
   SINCE 2026-07-26 UNTIL 2026-08-03
@@ -66,28 +71,31 @@ FROM sales
 
 - `SINCE`/`UNTIL` are inclusive; this example pads 2026-07-27..08-02 by one
   day each side.
-- Add `WHERE is_pos_sale = false` between `SHOW` and `GROUP BY` **only if**
-  the operator's number excluded POS. Write down which you used.
+- No `WHERE` clause, whatever filters the operator's report had. If their
+  figure came from a POS-excluded report, reproduce that figure with the
+  comparator's `--basis exclude-pos` flag; the order-level verdict always
+  comes from the unfiltered run.
 - The default row cap is 1,000. `LIMIT 100000` lifts it. If the store does
   more than that in the window, split the window.
-- `TIMESERIES day` is the current time-grouping clause; older ShopifyQL
-  accepted `GROUP BY ..., day` instead. If the editor rejects one, use the
-  other. If it rejects a field name, use the editor's autocomplete; field
-  names have drifted between ShopifyQL versions, and the autocomplete list
-  is authoritative for that store.
+- Verified 2026-10-05 against a live store: the query runs as written and
+  returns order-grain rows. `sale_kind` is not a column (the editor offers
+  `sale_id`), so return-only rows are recognized by `orders` = 0 rather than
+  by a kind dimension. If a future editor rejects a name, use its
+  autocomplete; that list is authoritative for the store.
 
 ### Sales by day (layer 2 cross-check)
 
 ```
 FROM sales
-  SHOW gross_sales, discounts, returns, net_sales, total_sales, orders
+  SHOW gross_sales, discounts, sales_reversals, net_sales, total_sales, orders
   TIMESERIES day
   SINCE 2026-07-26 UNTIL 2026-08-03
   ORDER BY day ASC
 ```
 
-Its totals must equal the Analytics overview for the same window and
-filters. If they do not, the filters differ; fix that before exporting.
+Its totals equal the Analytics overview for the same window with no
+filters applied. A POS-excluded dashboard figure will be lower; that gap is
+the POS orders, which the order-grain comparison matches individually.
 
 ## Vector 2: driving the browser
 
@@ -104,9 +112,10 @@ admin sessions do not survive that reliably.
    different store.
 2. **Wait for hydration.** 10 to 15 seconds after navigation. Export clicks
    fire silently into nothing on a half-loaded page.
-3. **Verify the result before exporting.** Read the totals row and compare
-   with the operator's quoted number. If they differ, the filters or window
-   differ, so fix the query before exporting anything.
+3. **Verify the result before exporting.** Read the totals row. It should
+   land near the operator's quoted number unless their report excluded POS;
+   if it is far off, the window or the store handle is wrong, so fix that
+   before exporting anything.
 4. **Export.** Actions menu (three dots, top right, next to "New
    exploration") → Export → choose CSV and "All results from the data
    query" → Export. The file name is Shopify's report title plus the dates;
@@ -146,8 +155,9 @@ the human-facing steps. Know its shape before you trust it:
   apart; for draft orders completed later, pending-payment orders, and some
   POS flows they are not.
 - **Includes everything**: test orders, unpaid, cancelled, POS, drafts.
-  The comparator uses `Financial Status`, `Cancelled at`, and `Source` to
-  classify, and sets POS aside under `--basis exclude-pos`.
+  That is what we want. The comparator uses `Financial Status` and
+  `Cancelled at` to explain rows and compares POS orders like any other
+  unless `--basis exclude-pos` is passed to reproduce a quoted figure.
 - **Money columns**: `Lineitem price` is the unit price before line
   discounts; `Subtotal` is after all discounts; `Discount Amount` is the
   order's total discounts; `Refunded Amount` is the total refunded including
@@ -174,7 +184,7 @@ a label not listed, pass `--shopify-map "<label>=<field>"`.
 | `day` | `day`, `date`, `created_at`, `processed_at` |
 | `gross` | `gross_sales` |
 | `discounts` | `discounts`, `discount_amount` |
-| `returns` | `returns`, `refunds`, `refunded_amount` |
+| `returns` | `sales_reversals`, `returns`, `refunds`, `refunded_amount` |
 | `net` | `net_sales` |
 | `shipping` | `shipping_charges`, `shipping` |
 | `taxes` | `taxes`, `tax` |

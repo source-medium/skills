@@ -25,9 +25,9 @@ source report and the right SourceMedium columns.
 | Timezone | store timezone (Settings > General) | SourceMedium's configured store timezone, baked into `*_local_datetime` | compare the two; if they differ, re-bucket SM by `DATETIME(order_processed_at, '<shopify tz>')` |
 | Timestamp | order processed time | `order_processed_at` / `_local_datetime` (not `order_created_at`) | use processed on both sides |
 | Valid order | includes cancelled orders (sale plus later return), excludes test orders | `is_order_sm_valid` excludes voided, cancelled, uncollectible, draft, fully refunded, fraud/declined | pull SM unfiltered, classify invalid rows as their own cause |
-| Channel scope | all channels unless `WHERE is_pos_sale = false` | `sm_channel` buckets: `online_dtc`, `retail` (POS), `marketplace`, `wholesale`, `draft_orders`, `excluded` | state the Shopify filter; the comparator sets SM `retail` aside under `--basis exclude-pos` |
+| Channel scope | every channel; the export is never filtered | `sm_channel` buckets: `online_dtc`, `retail` (POS), `marketplace`, `wholesale`, `draft_orders`, `excluded` | compare every order; POS matches like any other, `draft_orders` and `excluded` rows are classified |
 | Currency | store currency (presentment converted) | `order_*` columns are canonical currency; `order_original_*` are as-charged | compare `order_*`; if the store currency differs from the SM canonical currency, use `order_original_*` |
-| Refund attribution | `returns` booked on the refund day; attached to the original `order_id` at order grain | `order_refunds` attached to the original order and its processed day | compare at order grain; expect by-day drift |
+| Refund attribution | `sales_reversals` booked on the refund day; attached to the original `order_id` at order grain | `order_refunds` attached to the original order and its processed day | compare at order grain; expect by-day drift |
 | Shipping / tax | `shipping_charges`, `taxes` separate from net | `order_net_shipping`, `order_total_taxes` separate from net | compare net first, then total |
 
 ## Canonical SourceMedium extract
@@ -159,7 +159,6 @@ python scripts/sm_reconcile_orders.py \
   --shopify shopify_sales_by_order.csv \
   --sm sm_orders.csv \
   --window 2026-07-27 2026-08-02 \
-  --basis exclude-pos \
   --out-dir ./reconcile_out
 ```
 
@@ -167,9 +166,11 @@ Useful options:
 
 - `--window START END` — the claimed window. Rows outside it on either side
   are used for matching but excluded from totals; this is how padding works.
-- `--basis exclude-pos | all` — must match the Shopify report. Under
-  `exclude-pos`, SM `retail` rows and Orders-export rows whose `Source` is
-  `pos` are set aside as `channel-basis`.
+- `--basis all | exclude-pos` — default `all`: every order on both sides.
+  `exclude-pos` exists only to reproduce a figure the operator quoted from a
+  POS-excluded report; it sets SM `retail` rows and Orders-export `pos` rows
+  aside as `channel-basis`. The order-level verdict comes from the default
+  run.
 - `--sm-day local | utc` — which SM timestamp buckets the SM day. Default
   `local`.
 - `--shopify-utc-offset -7` — re-bucket SM days from `order_processed_at`
@@ -201,12 +202,13 @@ says so.
 | `match` | same order, same amounts, same day | none |
 | `day-shift` | same order, different day; in-window on one side only | timezone or timestamp |
 | `refund-attribution` | gross and discounts equal, refunds differ | refund timing or partial refund scope |
+| `prior-period-return` | Shopify row with `orders` = 0: a refund, booked on the refund day, of an order sold before the window | refund attribution |
 | `discount-basis` | gross equal, discounts differ | discount allocation, gift card as discount |
 | `gross-delta` | gross differs | order edit, line basis, gift card product, tip |
 | `shipping-tax-delta` | net equal, total differs | shipping or tax inclusion |
 | `sm-invalid` | Shopify counts it, SM marks it invalid | validity definition |
 | `sm-channel` | Shopify counts it, SM buckets it `excluded` or `draft_orders` | channel scope |
-| `channel-basis` | set aside because the basis excludes it (POS) | none, by construction |
+| `channel-basis` | set aside by `--basis exclude-pos` only | none, by construction |
 | `missing-in-sm` | Shopify has the order, SM has no row | freshness, load gap, store mapping |
 | `unexplained-sm-only` | SM has a valid in-scope order Shopify did not export | export filter, store mismatch |
 | `unexplained-delta` | matched, amounts differ, no pattern | escalate with ids |

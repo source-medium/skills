@@ -28,7 +28,7 @@ Have these ready; your assistant needs them to compare like with like:
 
    ```
    FROM sales
-     SHOW gross_sales, discounts, returns, net_sales, shipping_charges, taxes, total_sales, orders
+     SHOW gross_sales, discounts, sales_reversals, net_sales, shipping_charges, taxes, total_sales, orders
      GROUP BY order_id, order_name
      TIMESERIES day
      SINCE 2026-07-26 UNTIL 2026-08-03
@@ -36,23 +36,18 @@ Have these ready; your assistant needs them to compare like with like:
      LIMIT 100000
    ```
 
-   If your number excluded point-of-sale orders, add one line after the
-   `SHOW` line:
-
-   ```
-     WHERE is_pos_sale = false
-   ```
+   Do not add any filters, even if the number you are questioning left out
+   point-of-sale orders. Your assistant compares every order and accounts
+   for that afterwards.
 
    If the editor underlines a word in red, start typing it again and pick
-   the suggestion it offers; field names vary slightly between stores.
-   If it rejects `TIMESERIES day`, remove that line and change the
-   `GROUP BY` line to `GROUP BY order_id, order_name, day`.
+   the suggestion it offers.
 
 3. Run the query (the Run button, or Ctrl+Enter / Cmd+Enter). Wait for the
    table to fill.
-4. Check the totals row against the number you are questioning. If they
-   do not match, the dates or the POS filter differ; adjust until they do,
-   and tell your assistant what you changed.
+4. Glance at the totals row. It will be higher than a figure that excluded
+   point-of-sale orders, which is expected. Only change the dates if the
+   window is wrong.
 5. Click the **three dots** menu at the top right (next to "New
    exploration"), choose **Export**, select **CSV** and **All results from
    the data query**, then **Export**.

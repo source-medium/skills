@@ -49,7 +49,7 @@ SHOPIFY_ALIASES: Dict[str, Tuple[str, ...]] = {
     "day": ("day", "date", "processed_at", "created_at"),
     "gross": ("gross_sales",),
     "discounts": ("discounts", "discount_amount"),
-    "returns": ("returns", "refunds", "refunded_amount"),
+    "returns": ("sales_reversals", "returns", "refunds", "refunded_amount"),
     "net": ("net_sales",),
     "shipping": ("shipping_charges", "shipping"),
     "taxes": ("taxes", "tax"),
@@ -113,6 +113,7 @@ class Order:
     source: str = ""
     approx_net: bool = False
     line_count: int = 0
+    order_count: Optional[Decimal] = None  # ShopifyQL `orders`; 0 marks a return-only row
 
     def amount(self, name: str) -> Decimal:
         value = self.money.get(name)
@@ -303,8 +304,24 @@ def load_shopifyql(rows: List[Dict[str, str]], cols: Dict[str, str]) -> Dict[str
                 value = parse_money(row.get(cols[name]))
                 if value is not None:
                     rec.money[name] = (rec.money[name] or ZERO) + value
+        if "orders" in cols:
+            count = parse_money(row.get(cols["orders"]))
+            if count is not None:
+                rec.order_count = (rec.order_count or ZERO) + count
         rec.line_count += 1
     return orders
+
+
+def return_only(rec: Order) -> bool:
+    """A Shopify row that carries a refund of an order sold outside the window.
+
+    ShopifyQL books sales_reversals on the refund day under the original
+    order id with `orders` = 0 and no gross. SourceMedium restates the
+    original order instead, so these rows never have an in-window SM twin.
+    """
+    if rec.order_count is not None:
+        return rec.order_count == ZERO
+    return rec.amount("gross") == ZERO and rec.amount("returns") < ZERO
 
 
 def load_orders_export(rows: List[Dict[str, str]], cols: Dict[str, str]) -> Dict[str, Order]:
@@ -550,7 +567,8 @@ def run(args: argparse.Namespace) -> int:
         notes.append("--shopify-utc-offset given but the SM extract has no order_processed_at; falling back to local days.")
         offset = None
 
-    # Basis: set aside POS on both sides when the Shopify report excluded it.
+    # Default basis is every order on both sides. exclude-pos exists only to
+    # reproduce an operator's POS-excluded figure; it sets POS aside on both sides.
     basis_pos = args.basis == "exclude-pos"
     channel_basis = Attribution("channel-basis")
     pos_set_aside: set = set()
@@ -605,7 +623,8 @@ def run(args: argparse.Namespace) -> int:
     sm_fields_present = {name for name in MONEY_FIELDS if any(rec.has(name) for rec in sm.values())}
     for key, rec in shopify.items():
         if sh_in[key]:
-            sh_count += 1
+            if not return_only(rec):
+                sh_count += 1
             for name in MONEY_FIELDS:
                 sh_total[name] += rec.amount(name)
     for key in sm:
@@ -654,7 +673,9 @@ def run(args: argparse.Namespace) -> int:
                 final_cls = cls
             elif sh_counts and not sm_counts:
                 effect = -sh.amount("net")
-                if not smr.valid:
+                if return_only(sh):
+                    final_cls = "prior-period-return"
+                elif not smr.valid:
                     final_cls = "sm-invalid"
                 elif smr.channel in SM_EXCLUDED_CHANNELS:
                     final_cls = "sm-channel"
@@ -688,7 +709,7 @@ def run(args: argparse.Namespace) -> int:
         elif sh is not None:
             if not sh_in[key]:
                 continue
-            cls = "missing-in-sm"
+            cls = "prior-period-return" if return_only(sh) else "missing-in-sm"
             effect = -sh.amount("net")
             attr(cls).add(key, effect)
             shopify_only_rows.append(
@@ -785,8 +806,8 @@ def run(args: argparse.Namespace) -> int:
     p("| Class | Orders | Net effect | Sample ids |")
     p("|---|---:|---:|---|")
     order_of_classes = [
-        "match", "day-shift", "refund-attribution", "discount-basis", "gross-delta", "shipping-tax-delta",
-        "sm-invalid", "sm-channel", "channel-basis", "sm-invalid-unmatched", "sm-channel-unmatched",
+        "match", "day-shift", "refund-attribution", "prior-period-return", "discount-basis", "gross-delta",
+        "shipping-tax-delta", "sm-invalid", "sm-channel", "channel-basis", "sm-invalid-unmatched", "sm-channel-unmatched",
         "missing-in-sm", "unexplained-sm-only", "unexplained-delta",
     ]
     for cls in order_of_classes + sorted(set(attributions) - set(order_of_classes)):
@@ -846,6 +867,8 @@ def run(args: argparse.Namespace) -> int:
         hints.append("`sm-invalid` present: these are counted by Shopify and excluded by `is_order_sm_valid` (cancelled/voided/test/fully refunded). Definition, not defect.")
     if "refund-attribution" in attributions:
         hints.append("`refund-attribution` present: Shopify books returns on the refund day; SM restates the order. Expected at by-day grain.")
+    if "prior-period-return" in attributions:
+        hints.append("`prior-period-return` present: refunds of orders sold before the window, booked by Shopify on the refund day (orders = 0). SM carries them on the original order. Definition, not defect.")
     if "missing-in-sm" in attributions:
         hints.append("`missing-in-sm` present: compare these orders' times with obt_orders table_last_data_date (freshness) and confirm the store mapping before escalating.")
     if "unexplained-sm-only" in attributions:
@@ -894,7 +917,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--shopify", required=True, help="Shopify export CSV (ShopifyQL sales by order, or Orders page export).")
     parser.add_argument("--sm", required=True, help="SourceMedium obt_orders extract CSV (canonical query).")
     parser.add_argument("--window", nargs=2, metavar=("START", "END"), help="Claimed window, YYYY-MM-DD inclusive. Rows outside it are matched but not totaled.")
-    parser.add_argument("--basis", choices=["exclude-pos", "all"], default="exclude-pos", help="Match the Shopify report's POS scope. Default exclude-pos.")
+    parser.add_argument("--basis", choices=["all", "exclude-pos"], default="all", help="Default all: every order on both sides, POS included. Use exclude-pos only to reproduce a figure quoted from a POS-excluded report.")
     parser.add_argument("--sm-day", choices=["local", "utc"], default="local", help="Which SM timestamp buckets the SM day. Default local.")
     parser.add_argument("--shopify-utc-offset", type=float, default=None, help="Re-bucket SM days from order_processed_at (UTC) into this offset, e.g. -7 for Pacific daylight time.")
     parser.add_argument("--tolerance-order", type=float, default=0.01, help="Per-order amount tolerance. Default 0.01.")

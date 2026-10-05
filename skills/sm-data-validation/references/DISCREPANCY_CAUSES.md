@@ -62,8 +62,10 @@ would include.
 **Looks like:** SM lower than Shopify by a stable share; or the reverse when
 the Shopify report excluded POS and the SM query did not.
 
-**Detect:** comparator classes `channel-basis` (POS set aside by basis) and
-`sm-channel` (`draft_orders`, `excluded`). Check the config: the
+**Detect:** comparator class `sm-channel` (`draft_orders`, `excluded`). POS
+orders match on both sides in the default run; `channel-basis` appears only
+when `--basis exclude-pos` was used to reproduce a POS-excluded figure.
+Check the config: the
 `sm-exclude-order` tag and the customer's channel overrides route orders to
 `excluded`, and the Executive Summary and LTV tables omit `excluded`
 entirely.
@@ -76,8 +78,10 @@ operator did not know an exclusion rule existed, that is the finding.
 **Looks like:** gross and discounts match, net differs; by day, Shopify
 shows negative returns on days with no corresponding SM movement.
 
-**Detect:** comparator class `refund-attribution`. Compare `order_refunds`
-with Shopify `returns` for those order ids; look at `latest_refund_date` in
+**Detect:** comparator classes `refund-attribution` (same order, refund on
+one side only) and `prior-period-return` (a Shopify row with `orders` = 0,
+the refund of an order sold before the window). Compare `order_refunds`
+with Shopify `sales_reversals` for those order ids; look at `latest_refund_date` in
 `obt_orders` if more detail is needed.
 
 **Say:** Shopify books a return on the refund day; SM restates the original

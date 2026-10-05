@@ -1,4 +1,4 @@
-Day,Order ID,Order name,Gross sales,Discounts,Returns,Net sales,Shipping charges,Taxes,Total sales,Orders
+Day,Order ID,Order name,Gross sales,Discounts,Sales reversals,Net sales,Shipping charges,Taxes,Total sales,Orders
 2026-07-31,6100000001,#1001,120.00,-10.00,0.00,110.00,8.00,9.90,127.90,1
 2026-08-01,6100000002,#1002,80.00,0.00,0.00,80.00,0.00,7.20,87.20,1
 2026-08-01,6100000003,#1003,250.00,-25.00,-50.00,175.00,12.00,15.75,202.75,1

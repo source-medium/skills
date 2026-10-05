@@ -57,8 +57,9 @@ source-agnostic; `references/OTHER_SOURCES.md` says how to extend it.
    order by order. Order grain is the one that settles it. Read
    `references/COMPARISON_PROTOCOL.md`.
 4. **Acquire the raw data** through the first vector available (below), as
-   close to order grain as the vector allows, with the window **padded one
-   day on each side** so timezone boundary orders are present on both sides.
+   close to order grain as the vector allows, **with no filters**, and with
+   the window **padded one day on each side** so timezone boundary orders
+   are present on both sides.
 5. **Extract the SourceMedium rows** with the canonical query in
    `references/COMPARISON_PROTOCOL.md`, including invalid and excluded
    orders so they can be classified rather than silently dropped. Run it
@@ -121,9 +122,12 @@ human for store credentials or an API token; a CSV is all this skill needs.
 3. **Pad the window.** Raw export and SM extract both cover one extra day on
    each side of the claimed window. Boundary orders are the single most
    common cause and they are invisible otherwise.
-4. **Pull SM rows unfiltered, then classify.** The SM extract includes
-   `is_order_sm_valid = FALSE` and every `sm_channel`. Filtering first turns
-   explainable rows into "missing orders".
+4. **Pull both sides unfiltered, then classify.** The Shopify export has no
+   `WHERE` clause and the SM extract includes `is_order_sm_valid = FALSE` and
+   every `sm_channel`. The comparison is every order against every order;
+   POS, drafts, exclusions, and a report that left POS out are classified by
+   the comparator afterwards. Filtering first turns explainable rows into
+   "missing orders".
 5. **The script does the math.** Totals, deltas, matching, and
    classification come from `scripts/sm_reconcile_orders.py` output. Prose
    restates it; prose never recomputes it.

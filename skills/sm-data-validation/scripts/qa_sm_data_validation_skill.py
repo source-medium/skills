@@ -194,21 +194,23 @@ def comparator_cases() -> bool:
                "--sm", str(FIXTURES / "planted_sm_orders.csv"), "--window", "2026-08-01", "2026-08-02"]
     with tempfile.TemporaryDirectory() as tempdir:
         ok &= run(
-            "planted pair classifies every planted cause (exit 1)",
+            "planted pair classifies every planted cause, all orders compared (exit 1)",
             planted + ["--out-dir", tempdir],
             expect=1,
             require_text=(
+                "| Orders | 6 | 3 | -3 |",              # return-only row is not an order
+                "`match` | 1 | 0.00",                   # #1005: POS on Shopify, retail in SM, compared like any order
                 "`refund-attribution` | 1 | 20.00",     # #1002: SM has no refund yet
                 "`day-shift` | 1 | -225.00",            # #1003: Shopify 08-02, SM local 08-03
+                "`prior-period-return` | 1 | 30.00",    # #0990: refund of an order sold before the window
                 "`sm-invalid` | 1 | -45.50",            # #1004: cancelled, SM invalid
                 "`sm-channel` | 1 | -60.00",            # #1006: SM draft_orders
-                "`channel-basis` | 1 | 0.00",           # #1005: SM retail set aside
                 "`missing-in-sm` | 1 | -99.00",         # #1008: no SM row
                 "`unexplained-sm-only` | 1 | 42.00",    # #1007: valid SM order Shopify lacks
-                "Headline net delta (SM - Shopify): **-367.50**",
+                "Headline net delta (SM - Shopify): **-337.50**",
                 "residual (unexplained classes): **-57.00** across 2 orders",
             ),
-            forbid_text=("WARNING",),
+            forbid_text=("WARNING", "| `channel-basis` |"),
         )
         for name in ("matched_deltas.csv", "shopify_only.csv", "sm_only.csv", "attribution.csv"):
             ok = check(f"out-dir writes {name}", (Path(tempdir) / name).exists()) and ok
@@ -217,29 +219,29 @@ def comparator_cases() -> bool:
         "planted pair with Shopify offset collapses day-shift",
         planted + ["--shopify-utc-offset", "-7"],
         expect=1,
-        require_text=("`match` | 1 | 0.00",),
+        require_text=("`match` | 2 | 0.00",),
         forbid_text=("| `day-shift` |",),
     )
     ok &= run(
-        "planted pair under --basis all counts the POS order as SM-only",
-        planted + ["--basis", "all"],
+        "planted pair under --basis exclude-pos sets the POS order aside with its effect",
+        planted + ["--basis", "exclude-pos"],
         expect=1,
-        require_text=("`unexplained-sm-only` | 2 |",),
-        forbid_text=("| `channel-basis` |",),
+        require_text=("`channel-basis` | 1 | -270.00",),
+        forbid_text=("| `match` |",),
     )
     ok &= run(
-        "orders-page export is detected, collapsed per order, POS set aside",
+        "orders-page export is detected, collapsed per order, POS compared like any order",
         [py, str(RECONCILE), "--shopify", str(FIXTURES / "planted_shopify_orders_export.csv"),
          "--sm", str(FIXTURES / "planted_sm_orders.csv"), "--window", "2026-08-01", "2026-08-02"],
         expect=1,
         require_text=(
             "Shopify export format: `orders_export`",
             "Orders-page export detected",
-            "`match` | 1 | 0.00",              # #1007 collapsed from two line rows, 2 x 21.00 = 42.00
+            "`match` | 2 | 0.00",              # #1005 (pos) and #1007 (two line rows, 2 x 21.00)
             "`refund-attribution` | 1 | 20.00",
             "`sm-invalid` | 1 | -45.50",
         ),
-        forbid_text=("| `missing-in-sm` |",),
+        forbid_text=("| `missing-in-sm` |", "| `channel-basis` |"),
     )
 
     with tempfile.TemporaryDirectory() as tempdir:
