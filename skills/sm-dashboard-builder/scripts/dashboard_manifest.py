@@ -15,6 +15,9 @@ UNSAFE_SQL_RE = re.compile(
     re.IGNORECASE,
 )
 RATIO_TOKEN_RE = re.compile(r"(aov|cac|cpa|cpc|cpm|ctr|cvr|mer|rate|ratio|roas|share|percent|%)", re.IGNORECASE)
+# Unresolved template names such as `<project>` or `<sm_transformed_v2>`.
+PLACEHOLDER_RE = re.compile(r"<[a-z_][a-z0-9_]*>")
+ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}")
 
 
 def safe_id(raw: str) -> str:
@@ -68,6 +71,15 @@ def validate_manifest(manifest: dict[str, Any], *, strict: bool = False) -> tupl
     return errors, warnings
 
 
+def _check_placeholders(value: Any, label: str, errors: list[str], warnings: list[str], *, strict: bool) -> None:
+    """A publish-ready manifest names real tables; a template still says `<project>`."""
+    texts = value if isinstance(value, list) else [value]
+    found = sorted({m for text in texts if isinstance(text, str) for m in PLACEHOLDER_RE.findall(text)})
+    if found:
+        message = f"{label} has unresolved placeholders: {', '.join(found)}"
+        (errors if strict else warnings).append(message)
+
+
 def validate_manifest_or_raise(manifest: dict[str, Any], *, strict: bool = False) -> list[str]:
     errors, warnings = validate_manifest(manifest, strict=strict)
     if errors:
@@ -105,6 +117,7 @@ def _validate_top_level(
         for field in ("project", "timeframe"):
             if not scope.get(field):
                 warnings.append(f"Scope is missing {field}")
+        _check_placeholders(scope.get("project"), "Scope project", errors, warnings, strict=strict)
 
     freshness = manifest.get("freshness")
     if strict and not freshness:
@@ -153,6 +166,7 @@ def _validate_metric_contracts(
         source_tables = contract.get("source_tables", [])
         if source_tables and not isinstance(source_tables, list):
             errors.append(f"Metric contract {contract_id} source_tables must be a list")
+        _check_placeholders(source_tables, f"Metric contract {contract_id} source_tables", errors, warnings, strict=strict)
 
         additivity = str(contract.get("additivity", "")).lower()
         metric_type = str(contract.get("type", "")).lower()
@@ -205,6 +219,8 @@ def _validate_tiles(
             errors.append(f"{label} {tile_id} requires a SQL receipt")
         elif not _is_safe_select_sql(sql):
             errors.append(f"{label} {tile_id} SQL must be SELECT/WITH-only and non-mutating")
+        else:
+            _check_placeholders(sql, f"{label} {tile_id} SQL", errors, warnings, strict=strict)
 
         rows = tile.get("data" if require_vega_lite else "rows", [])
         if require_vega_lite and not isinstance(rows, list):
@@ -228,6 +244,7 @@ def _validate_tiles(
             errors.append(f"{label} {tile_id} source_tables must be a list")
         if strict and not source_tables:
             errors.append(f"{label} {tile_id} requires source_tables in strict mode")
+        _check_placeholders(source_tables, f"{label} {tile_id} source_tables", errors, warnings, strict=strict)
 
         qa = tile.get("query_metadata", {})
         if qa and not isinstance(qa, dict):
@@ -267,8 +284,13 @@ def _validate_query_metadata(
         errors.append(f"{label} query_metadata row_count must be positive")
     if "dry_run_bytes" in qa and not isinstance(qa["dry_run_bytes"], int):
         errors.append(f"{label} query_metadata dry_run_bytes must be an integer")
+    freshness = qa.get("freshness_checked_at")
+    if "freshness_checked_at" in qa and not (isinstance(freshness, str) and ISO_DATE_RE.match(freshness)):
+        errors.append(f"{label} query_metadata freshness_checked_at must be an ISO date or datetime")
     if "qa_status" in qa and qa["qa_status"] not in {"pass", "warn", "fail"}:
         warnings.append(f"{label} query_metadata qa_status should be pass, warn, or fail")
+    if qa.get("qa_status") == "fail":
+        errors.append(f"{label} query_metadata qa_status is fail; fix the tile or replace it with a blocker note")
 
 
 def _validate_vega_lite_fields(

@@ -10,7 +10,7 @@
       "grain": "day",
       "date_field": "order_processed_at_local_datetime",
       "source_tables": [
-        "PROJECT.sm_transformed_v2.obt_orders"
+        "<project>.<sm_transformed_v2>.obt_orders"
       ],
       "filters": [
         "is_order_sm_valid = TRUE",
