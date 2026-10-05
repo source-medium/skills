@@ -1,0 +1,8 @@
+interface:
+  display_name: "SourceMedium Data Validation"
+  short_description: "Reconcile SourceMedium data against raw source exports"
+  brand_color: "#1F6FEB"
+  default_prompt: "Use $sm-data-validation to check a SourceMedium number against the source platform's own export, order by order, and explain every difference."
+
+policy:
+  allow_implicit_invocation: true

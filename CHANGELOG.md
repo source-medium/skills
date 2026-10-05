@@ -21,3 +21,13 @@
   declared grain, and `append_restate` streams with no window column to make
   the fetch and delete windows identical. Malformed specs exit 2 with a
   message rather than a traceback.
+- Added `sm-data-validation` for reconciling a SourceMedium number against
+  the source platform's own records. Ships three acquisition vectors (raw
+  data already in BigQuery, agent-driven browser export, human-supplied
+  CSV), Shopify Analytics semantics and ShopifyQL queries, a cause ladder,
+  and a deterministic comparator that matches orders by platform id,
+  aligns POS scope and window padding, re-buckets days by store timezone,
+  and attributes the whole net delta to named classes whose effects sum
+  to the headline. Bundled fixtures cover a clean pair and a planted pair
+  (timezone edge, invalid order, draft and POS channels, refund timing,
+  missing order) plus an Orders-page export.

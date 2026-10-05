@@ -1,0 +1,81 @@
+{
+  "examples": [
+    {
+      "prompt": "Shopify says we did $412k net last week but the SourceMedium dashboard shows $398k. Which one is right?",
+      "should_trigger": true,
+      "expectations": [
+        "pins the claim: metric, report, window, store, POS filter",
+        "pads the window one day each side on both sides before extracting",
+        "compares order by order, not totals only",
+        "names each cause with order counts and dollar effect",
+        "does not call either side wrong from the totals alone"
+      ]
+    },
+    {
+      "prompt": "Can you validate our SourceMedium order counts for August against Shopify? I can download a CSV if you tell me how.",
+      "should_trigger": true,
+      "expectations": [
+        "chooses the human-export vector and hands over assets/MANUAL_SHOPIFY_EXPORT.md",
+        "prefers the ShopifyQL exploration export over the Orders page export",
+        "never asks for store credentials or an API token",
+        "pulls the SourceMedium extract unfiltered and classifies invalid and excluded orders"
+      ]
+    },
+    {
+      "prompt": "You have my Chrome session. Go into Shopify admin for store acme-us and check whether SourceMedium's refunds for July 20-26 match.",
+      "should_trigger": true,
+      "expectations": [
+        "uses the explore URL with the ShopifyQL sales-by-order query and waits for hydration before exporting",
+        "verifies the totals row against the operator's number before exporting",
+        "confirms the Shopify handle maps to the sm_store_id being extracted",
+        "compares refunds at order grain and explains refund-day attribution drift"
+      ]
+    },
+    {
+      "prompt": "Our daily revenue in SourceMedium is off from Shopify every single day by a little, but the weekly total is close.",
+      "should_trigger": true,
+      "expectations": [
+        "runs the store timezone offset check first",
+        "re-buckets SM days with --shopify-utc-offset to test the hypothesis",
+        "reports the verdict as explained with a timezone configuration recommendation if day-shift collapses to zero"
+      ]
+    },
+    {
+      "prompt": "Why does Meta Ads Manager show more spend than our SourceMedium ad performance table for last month?",
+      "should_trigger": true,
+      "expectations": [
+        "routes through references/OTHER_SOURCES.md to an ad-level by-day export",
+        "aligns account timezone and currency before comparing",
+        "validates spend exactly and treats conversions as attribution-window dependent"
+      ]
+    },
+    {
+      "prompt": "What was my revenue by channel last month?",
+      "should_trigger": false,
+      "expectations": [
+        "routes to sm-bigquery-analyst because nothing is being validated against a source"
+      ]
+    },
+    {
+      "prompt": "Build me an executive dashboard with net revenue, orders, and MER for the last 30 days.",
+      "should_trigger": false,
+      "expectations": [
+        "routes to sm-dashboard-builder"
+      ]
+    },
+    {
+      "prompt": "Set up a nightly pipeline that loads our Shopify orders into our own BigQuery dataset.",
+      "should_trigger": false,
+      "expectations": [
+        "routes to sm-pipeline-builder; building a loader is not validation"
+      ]
+    },
+    {
+      "prompt": "Fix the SourceMedium pipeline so cancelled orders stop showing up.",
+      "should_trigger": false,
+      "expectations": [
+        "declines; the skill is read-only and SourceMedium-internal pipeline changes belong to SourceMedium support"
+      ]
+    }
+  ]
+}
