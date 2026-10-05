@@ -80,7 +80,11 @@ operator did not know an exclusion rule existed, that is the finding.
 ## 5. Refund attribution and partial refunds
 
 **Looks like:** gross and discounts match, net differs; by day, Shopify
-shows negative returns on days with no corresponding SM movement.
+shows negative reversals on days with no corresponding SM movement. Two
+Shopify-side wrinkles: a refund still pending can show as a positive amount
+until it completes, and a custom refund (money returned without a line
+item) appears in the Orders export's `Refunded Amount` but not as a sales
+reversal in Analytics.
 
 **Detect:** comparator classes `refund-attribution` (same order, refund on
 one side only) and `prior-period-return` (a Shopify row with `orders` = 0,
@@ -133,8 +137,9 @@ store currency. State the rate behavior and compare like with like.
 ## 9. Order edits and line-basis differences
 
 **Looks like:** `gross-delta` on a few orders; the order was edited after
-placement (items added or removed), or includes a tip, a gift card product,
-or a 100% discounted line.
+placement (Shopify books the edit on the edit day, so the original day's
+gross stays put), or includes a tip, a gift card product (excluded from
+Shopify gross sales), or a 100% discounted line.
 
 **Detect:** per-order deltas in `matched_deltas.csv`; open the order in
 Shopify admin (vector 2 or the human) and look at the timeline.

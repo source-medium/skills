@@ -49,8 +49,8 @@ Have these ready; your assistant needs them to compare like with like:
    point-of-sale orders, which is expected. Only change the dates if the
    window is wrong.
 5. Click the **three dots** menu at the top right (next to "New
-   exploration"), choose **Export**, select **CSV** and **All results from
-   the data query**, then **Export**.
+   exploration"), choose **Export**, select **CSV**, and if it asks whether
+   to export the current page or all rows, choose all rows. Then **Export**.
 6. Send the downloaded CSV to your assistant, along with the exact query
    you ran. Rename it first if you exported several stores; the default
    file names look alike.
@@ -63,9 +63,10 @@ line item, so it is less exact. Your assistant will account for that.
 1. In Shopify admin, open **Orders**.
 2. Set the date filter to your range plus one extra day on each side. Leave
    the status filters alone (include everything).
-3. Click **Export** (top right). Choose **Selected orders** or **Orders by
-   date**, format **Plain CSV file**, and export.
-4. Shopify emails larger exports; download the file when it arrives.
+3. Click **Export** (top right). Choose **Orders by date**, format
+   **Plain CSV file**, and export.
+4. Shopify emails date-range exports to you and the store owner rather
+   than downloading them; download the file when the email arrives.
 5. Send the CSV to your assistant and say it came from the Orders page.
 
 ## What happens next

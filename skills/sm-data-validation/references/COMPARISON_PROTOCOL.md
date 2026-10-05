@@ -23,7 +23,7 @@ source report and the right SourceMedium columns.
 | Basis | Shopify Analytics (ShopifyQL `sales`) | SourceMedium `obt_orders` | Align by |
 |---|---|---|---|
 | Timezone | store timezone (Settings > General) | SourceMedium's configured store timezone, baked into `*_local_datetime` | compare the two; if they differ, re-bucket SM by `DATETIME(order_processed_at, '<shopify tz>')` |
-| Timestamp | order processed time | `order_processed_at` / `_local_datetime` (not `order_created_at`) | use processed on both sides |
+| Timestamp | the day the sale happened (equalled the processed date on every live row checked) | `order_processed_at` / `_local_datetime` (not `order_created_at`) | processed on both sides; only the Orders page CSV uses created time |
 | Valid order | includes cancelled orders (gross sale plus an equal `sales_reversals`, net 0, `orders` 1), excludes test orders | `is_order_sm_valid` excludes voided, cancelled, uncollectible, draft, fully refunded, fraud/declined | pull SM unfiltered, classify invalid rows as their own cause |
 | Channel scope | every channel; the export is never filtered | `sm_channel` buckets such as `online_dtc`, `retail` (POS), `wholesale`, marketplace values, and the non-sale buckets `draft_orders`, `excluded`, `exchanged` (always invalid) | compare every order; POS matches like any other, the non-sale buckets are classified as `sm-channel` |
 | Currency | store currency (presentment converted) | `order_*` columns are canonical currency; `order_original_*` are as-charged | compare `order_*`; if the store currency differs from the SM canonical currency, use `order_original_*` |
