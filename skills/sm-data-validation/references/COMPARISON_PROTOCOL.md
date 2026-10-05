@@ -225,6 +225,18 @@ Everything tagged `missing-in-sm`, `unexplained-sm-only`, or
 `unexplained-delta` is the residual. Walk the ladder for it; if it survives,
 the verdict is `defect-suspected` and the ids go to SourceMedium support.
 
+## What a real run looks like
+
+On a two-day window of a returns-heavy store (2,723 export rows, 667
+in-window orders, SourceMedium extract padded two days), the comparator
+reconciled with a zero residual: 407 exact matches, 101
+`refund-attribution` (SM already carries a refund Shopify books on a later
+day), 758 `prior-period-return` rows, 102 `sm-invalid` (cancelled and fully
+refunded orders, plus zero-value exchange orders), 56 `sm-channel`
+(`exchanged` and `excluded`), one `shipping-tax-delta`. The headline net
+delta was large and entirely explained. That is the normal shape: a big
+number at the top, nothing left at the bottom.
+
 ## Tolerances
 
 - Per order: 0.01 in the store currency. Anything larger comes from a

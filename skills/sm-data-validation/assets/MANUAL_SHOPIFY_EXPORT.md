@@ -48,9 +48,11 @@ Have these ready; your assistant needs them to compare like with like:
 4. Glance at the totals row. It will be higher than a figure that excluded
    point-of-sale orders, which is expected. Only change the dates if the
    window is wrong.
-5. Click the **three dots** menu at the top right (next to "New
-   exploration"), choose **Export**, select **CSV**, and if it asks whether
-   to export the current page or all rows, choose all rows. Then **Export**.
+5. Click **Export** at the top right. In the "Export report" dialog keep
+   **Comma Separated Values (CSV)** and **All results from the data query**
+   selected, then click **Export**. The file downloads to your browser's
+   usual folder with a name like "Gross sales by day - 2026-07-26 -
+   2026-08-03.csv".
 6. Send the downloaded CSV to your assistant, along with the exact query
    you ran. Rename it first if you exported several stores; the default
    file names look alike.

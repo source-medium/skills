@@ -143,13 +143,17 @@ admin sessions do not survive that reliably.
    land near the operator's quoted number unless their report excluded POS;
    if it is far off, the window or the store handle is wrong, so fix that
    before exporting anything.
-4. **Export.** The horizontal three-dots menu (top right, next to "New
-   exploration") → Export → CSV. Shopify documents CSV, XML, JSONL, and
-   Parquet; pick CSV and the full-results option when the dialog offers a
-   choice between the current page and all rows. The file name is Shopify's
-   report title plus the dates; rename it immediately to
-   `<store>_<start>_<end>_sales_by_order.csv` because names collide across
-   stores.
+4. **Export.** The **Export** button in the report header (also reachable
+   from the horizontal three-dots menu) opens an "Export report" dialog
+   with formats CSV, XML, JSONL, and Parquet and two scopes: "All results
+   from the data query (Can be more than 1000 rows)" and "Only results
+   displayed in the report". CSV and all results are preselected; click
+   **Export** (verified 2026-10-05). The file lands in the browser's
+   download folder as `<report title> - <since> - <until>.csv`, where the
+   title is derived from the first metric and time grain (for this query,
+   `Gross sales by day - 2026-08-31 - 2026-09-03.csv`). Rename it
+   immediately to `<store>_<start>_<end>_sales_by_order.csv` because names
+   collide across stores.
 5. **Confirm the file on disk** and its row count before moving on.
 
 Traps:
@@ -159,9 +163,9 @@ Traps:
 - The query editor is CodeMirror with `contenteditable="false"`; typing into
   it does not work. Use the URL parameter, or dispatch a paste event, then
   Ctrl+Enter to run.
-- Browser downloads may need a trusted click. If an export silently does not
-  land, click the Export button with a real pointer action rather than a
-  scripted `.click()`.
+- Browser downloads need a trusted click. A scripted or reference-based
+  click on Export did nothing on 2026-10-05; a real pointer click at the
+  button's position opened the dialog.
 - Keep each automation step under the tool's timeout; Shopify pages are
   heavy.
 - If the operator belongs to several stores (agency or multi-brand), confirm
@@ -235,9 +239,14 @@ a label not listed, pass `--shopify-map "<label>=<field>"`.
 | `lineitem_price`, `lineitem_quantity` | Orders CSV only |
 | `financial_status`, `cancelled_at`, `source`, `currency` | Orders CSV only |
 
-A `WITH TOTALS` row, a trailing summary row, or a `TIMESERIES` placeholder
-row is dropped automatically when its order id is empty or reads `Total`
-or `None`.
+The exported CSV header carries the display labels exactly: `"Day",
+"Order ID","Order name","Gross sales","Discounts","Sales reversals",
+"Net sales","Shipping charges","Taxes","Total sales","Orders"`, with
+ISO dates, unquoted plain numbers, and no currency symbols (verified on a
+2,723-row export). The export contained no `TIMESERIES` placeholder rows;
+those appear in the on-screen table. A `WITH TOTALS` row, a trailing
+summary row, or a placeholder row is dropped automatically when its order
+id is empty or reads `Total` or `None`.
 
 ## Sources
 
