@@ -5,7 +5,8 @@ Checks that the spec declares everything an idempotent, operable pipeline
 needs: source, destination, per-stream name, grain, primary key, load mode,
 and — per mode — the cursor, overlap, restatement horizon, and window column
 that make re-running a window safe. Also enforces the hard rules a spec can
-violate on paper: never writing to SourceMedium `sm_*` datasets, never
+violate on paper: never writing to SourceMedium datasets (`sm_*`, or
+`<tenant>_sm_*` on the shared project), never
 carrying a credential value instead of a secret name, and declaring a
 ceiling for the write side.
 
@@ -30,6 +31,11 @@ LOAD_MODES = ("merge", "append_restate", "snapshot")
 DESTINATION_KINDS = ("bigquery", "external")
 OVERLAP_RE = re.compile(r"^(\d+(?:\.\d+)?)\s*[smhdw]$", re.IGNORECASE)
 DATE_HINT_RE = re.compile(r"date|day", re.IGNORECASE)
+# SourceMedium publishes `sm_*` datasets in a dedicated project and
+# `<tenant>_sm_*` datasets in the shared project, where customers can read
+# but never write. Either name, or the shared project itself, is SourceMedium's.
+SM_DATASET_RE = re.compile(r"^(sm_|smdelivery_|.+_sm_(transformed_v2|metadata|views|experimental|sources)$)", re.IGNORECASE)
+SM_SHARED_PROJECT = "sourcemedium-bi"
 
 # Credential shapes that are unambiguous wherever they appear in a spec.
 # The QA harness imports this to scan the package itself, so keep it the one
@@ -211,14 +217,21 @@ def validate_destination(spec: dict, report: Report) -> None:
                 "leaving the warehouse, or `none` — egress without a declared PII scope is not reviewable"
             )
 
-    # Hard rule: bespoke pipelines read `sm_*` and write their own datasets.
+    # Hard rule: bespoke pipelines read SourceMedium datasets and write their own.
+    project = destination.get("project")
+    if isinstance(project, str) and project.strip().lower() == SM_SHARED_PROJECT:
+        report.error(
+            f"`destination.project` is `{project}`: that is SourceMedium's shared warehouse project, "
+            "readable but never writable by customers. Land bespoke tables in a project you own"
+        )
     for field, value in destination.items():
         if not str(field).startswith("dataset") or not isinstance(value, str):
             continue
-        if value.strip().lower().startswith("sm_"):
+        if SM_DATASET_RE.match(value.strip()):
             report.error(
-                f"`destination.{field}` is `{value}`: never write to SourceMedium `sm_*` datasets — "
-                "they are rebuilt by SourceMedium jobs and your writes will be overwritten. "
+                f"`destination.{field}` is `{value}`: never write to SourceMedium datasets "
+                "(`sm_*`, or `<tenant>_sm_*` on the shared project) — they are rebuilt by "
+                "SourceMedium jobs and your writes will be overwritten. "
                 "Land bespoke tables in a customer-owned dataset"
             )
 

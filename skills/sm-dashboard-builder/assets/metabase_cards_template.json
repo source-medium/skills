@@ -25,7 +25,7 @@
           "net_revenue"
         ],
         "visualization": "line",
-        "native_sql": "SELECT DATE(order_processed_at_local_datetime) AS order_date, SUM(order_net_revenue) AS net_revenue FROM `PROJECT.sm_transformed_v2.obt_orders` WHERE is_order_sm_valid = TRUE AND DATE(order_processed_at_local_datetime) BETWEEN {{start_date}} AND {{end_date}} GROUP BY order_date ORDER BY order_date",
+        "native_sql": "SELECT DATE(order_processed_at_local_datetime) AS order_date, SUM(order_net_revenue) AS net_revenue FROM `<project>.<sm_transformed_v2>.obt_orders` WHERE is_order_sm_valid = TRUE AND DATE(order_processed_at_local_datetime) BETWEEN {{start_date}} AND {{end_date}} GROUP BY order_date ORDER BY order_date",
         "field_mappings": {
           "x": "order_date",
           "y": "net_revenue"
@@ -41,7 +41,7 @@
           "row_count": null,
           "freshness_checked_at": null,
           "notes": [
-            "Replace PROJECT and run dry-run before creating the Metabase card."
+            "Replace <project> and <sm_transformed_v2> with the resolved names and run a dry-run before creating the Metabase card."
           ]
         }
       }

@@ -13,12 +13,13 @@ description: >
   customer-owned destinations. Do not use for SELECT-only analysis (use
   sm-bigquery-analyst), dashboards (use sm-dashboard-builder), or work inside
   SourceMedium's own managed pipelines and dbt project — managed-connector
-  incidents belong to SourceMedium support, not this skill.
+  incidents belong to SourceMedium support, not this skill. Requires direct
+  warehouse access, which is part of SourceMedium Pro.
 metadata:
   author: sourcemedium
-  version: "1.0"
+  version: "1.1"
   short-description: "Build bespoke BigQuery pipelines next to SourceMedium data."
-  requirements: "Requires write access to customer-owned destinations (read-only on SourceMedium datasets); Python 3.9+ with PyYAML for helper scripts."
+  requirements: "Requires direct warehouse access (SourceMedium Pro): read on SourceMedium datasets with the customer's own Google identities, write to customer-owned destinations; Python 3.9+ with PyYAML for helper scripts."
 ---
 
 # SourceMedium Pipeline Builder
@@ -33,8 +34,12 @@ measured source behavior over guessing.
 
 ## Requirements
 
-- BigQuery project access with **write** permission on customer-owned datasets
-  (read on SourceMedium datasets; never write to `sm_*`)
+- **Direct warehouse access**, part of SourceMedium Pro (the dedicated
+  warehouse): the pipeline reads SourceMedium's datasets with the customer's
+  own Google identities and writes to datasets they own, either new datasets in
+  the dedicated project (workspace editors and admins can create them) or
+  another project of theirs. Foundation plans have no direct warehouse access,
+  so this skill does not apply there; say so rather than building around it
 - A scheduler you own (cron, Airflow, dbt Cloud, GitHub Actions, Cloud
   Scheduler — the skill is scheduler-agnostic)
 - `python3` (3.9+) with PyYAML for `scripts/validate_pipeline_spec.py`
@@ -108,8 +113,10 @@ These are hard constraints. Do not bypass.
    validator enforces the structural half at any time and the declaration
    half under `--strict`; run `--strict` before the first production write,
    not just before go-live.
-2. **Never write to `sm_*` datasets.** Bespoke tables live in customer-owned
-   datasets. No exceptions, no "temporary" exceptions.
+2. **Never write to SourceMedium datasets**: `sm_*` on a dedicated warehouse,
+   `<tenant>_sm_*` and anything else in `sourcemedium-bi` on the shared one.
+   Bespoke tables live in customer-owned datasets. No exceptions, no
+   "temporary" exceptions.
 3. **Resolve the write target before the first write; never infer it.**
    Read the active project from the environment (`gcloud config get-value
    project` or equivalent) and confirm the destination project and dataset
@@ -189,7 +196,8 @@ environment cannot execute them, follow the same checks manually.
   derivable from the grain without a declared `surrogate_key`; an unknown
   `load.mode`; merge mode without a cursor or positive overlap;
   `append_restate` without `restatement_days` and `incremental.window_column`;
-  a destination dataset under `sm_*`; and any value anywhere in the spec that
+  a destination dataset that is SourceMedium's (`sm_*`, or `<tenant>_sm_*`),
+  or the shared project `sourcemedium-bi`; and any value anywhere in the spec that
   looks like a live credential rather than a secret name. Exit 0 when valid,
   exit 2 with reasons when not — malformed files (bad YAML/JSON, a scalar
   where a mapping belongs, a missing file) exit 2 with a message, never a

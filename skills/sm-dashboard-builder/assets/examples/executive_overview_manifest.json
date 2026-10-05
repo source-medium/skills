@@ -3,7 +3,7 @@
   "subtitle": "Template dashboard for last 30 days performance.",
   "freshness": "Example only. Replace after querying dim_data_dictionary.",
   "scope": {
-    "project": "PROJECT",
+    "project": "<project>",
     "store": "all stores",
     "timeframe": "last 30 days",
     "timezone": "store local datetime"
@@ -17,7 +17,7 @@
       "grain": "day, channel",
       "date_field": "order_processed_at_local_datetime",
       "source_tables": [
-        "PROJECT.sm_transformed_v2.obt_orders"
+        "<project>.<sm_transformed_v2>.obt_orders"
       ],
       "filters": [
         "is_order_sm_valid = TRUE",
@@ -34,7 +34,7 @@
       "grain": "day, channel",
       "date_field": "order_processed_at_local_datetime",
       "source_tables": [
-        "PROJECT.sm_transformed_v2.obt_orders"
+        "<project>.<sm_transformed_v2>.obt_orders"
       ],
       "filters": [
         "is_order_sm_valid = TRUE",
@@ -67,9 +67,9 @@
         "net_revenue"
       ],
       "source_tables": [
-        "PROJECT.sm_transformed_v2.obt_orders"
+        "<project>.<sm_transformed_v2>.obt_orders"
       ],
-      "sql": "SELECT DATE(order_processed_at_local_datetime) AS order_date, SUM(order_net_revenue) AS net_revenue FROM `PROJECT.sm_transformed_v2.obt_orders` WHERE is_order_sm_valid = TRUE AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) GROUP BY order_date ORDER BY order_date",
+      "sql": "SELECT DATE(order_processed_at_local_datetime) AS order_date, SUM(order_net_revenue) AS net_revenue FROM `<project>.<sm_transformed_v2>.obt_orders` WHERE is_order_sm_valid = TRUE AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) GROUP BY order_date ORDER BY order_date",
       "query_metadata": {
         "dry_run_bytes": 0,
         "row_count": 2,

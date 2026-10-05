@@ -3,12 +3,13 @@
 Use this before sharing a dashboard HTML file or BI-tool handoff.
 
 - [ ] Dashboard answers one clear operating or business decision.
+- [ ] Project and dataset names are the ones resolved for this tenant's warehouse layout; no `<...>` placeholders remain.
 - [ ] Every tile has a metric contract or an explicit blocker note.
 - [ ] Every SQL tile has a copy/paste SQL receipt.
 - [ ] Every SQL query was dry-run and `dry_run_bytes` is recorded.
 - [ ] Every executed query has `row_count` recorded.
-- [ ] Freshness was checked from SourceMedium metadata or documented as unknown.
-- [ ] Ratios/rates include numerator, denominator, and denominator safety checks.
+- [ ] Freshness was checked from SourceMedium metadata: each tile's `freshness_checked_at` is the date of that check, and anything still unknown is said in the top-level `freshness` note.
+- [ ] Ratios/rates include numerator, denominator, and denominator safety checks, and are aggregated before dividing.
 - [ ] Date range, timezone, store scope, and attribution lens are visible.
 - [ ] Partial periods are excluded or clearly labeled.
 - [ ] Filters are real and wired to every affected tile, or shown as static scope.

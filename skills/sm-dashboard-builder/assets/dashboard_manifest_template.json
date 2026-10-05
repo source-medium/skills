@@ -3,7 +3,7 @@
   "subtitle": "Replace with business question, tenant, scope, and timeframe.",
   "freshness": "Data freshness not verified yet.",
   "scope": {
-    "project": "sm-tenant-id",
+    "project": "<project>",
     "store": "all stores",
     "timeframe": "last 30 days",
     "timezone": "store local datetime"
@@ -17,7 +17,7 @@
       "grain": "order_date",
       "date_field": "order_processed_at_local_datetime",
       "source_tables": [
-        "sm-tenant-id.sm_transformed_v2.obt_orders"
+        "<project>.<sm_transformed_v2>.obt_orders"
       ],
       "filters": [
         "is_order_sm_valid = TRUE",
@@ -25,7 +25,7 @@
       ],
       "additivity": "additive",
       "caveats": [
-        "Replace template project ID and validate freshness before sharing."
+        "Replace <project> and <sm_transformed_v2> with the resolved names and validate freshness before sharing."
       ]
     }
   ],
@@ -46,9 +46,9 @@
         "net_revenue"
       ],
       "source_tables": [
-        "sm-tenant-id.sm_transformed_v2.obt_orders"
+        "<project>.<sm_transformed_v2>.obt_orders"
       ],
-      "sql": "SELECT DATE(order_processed_at_local_datetime) AS order_date, SUM(order_net_revenue) AS net_revenue FROM `sm-tenant-id.sm_transformed_v2.obt_orders` WHERE is_order_sm_valid = TRUE AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) GROUP BY order_date ORDER BY order_date",
+      "sql": "SELECT DATE(order_processed_at_local_datetime) AS order_date, SUM(order_net_revenue) AS net_revenue FROM `<project>.<sm_transformed_v2>.obt_orders` WHERE is_order_sm_valid = TRUE AND DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) GROUP BY order_date ORDER BY order_date",
       "query_metadata": {
         "dry_run_bytes": 0,
         "row_count": 1,
