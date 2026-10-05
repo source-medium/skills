@@ -9,15 +9,16 @@ Use this reference when planning dashboard data contracts and writing BI-safe SQ
   with `<tenant>_sm_transformed_v2`, `<tenant>_sm_metadata`, .... Examples here
   write `` `<project>.<sm_transformed_v2>.obt_orders` ``; substitute the names
   reported by the SourceMedium MCP's `get_data_context` (or, with direct
-  warehouse access, `sm-bigquery-analyst/scripts/sm_bq_doctor.py`). A
+  warehouse access and the `sm-bigquery-analyst` skill installed, its
+  `scripts/sm_bq_doctor.py`). A
   publish-ready manifest has no `<...>` placeholders left, and strict validation
   enforces that.
 - On every plan, use the SourceMedium MCP: `query_metrics` for catalog-metric
   tiles (it compiles SourceMedium's definition and returns the compiled SQL,
   which becomes the tile's SQL receipt) and `run_bigquery_sql` for custom tiles.
-  `query_metrics` refuses the new- and repeat-customer metrics today; write
-  those tiles with `sm_valid_order_sequence` as below. With direct warehouse
-  access (Pro), `bq` works too.
+  If `query_metrics` refuses a metric, write that tile's SQL from the catalog
+  row (new- and repeat-customer tiles use `sm_valid_order_sequence`, as below)
+  and note why. With direct warehouse access (Pro), `bq` works too.
 
 ## SQL Contract Per Tile
 

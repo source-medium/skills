@@ -20,12 +20,11 @@ SourceMedium's numbers are defined in `<sm_metadata>.dim_semantic_metric_catalog
 Resolve a named metric there before computing it; if the SourceMedium MCP is
 connected, `query_metrics` compiles the definition for you.
 
-Today `query_metrics` refuses the new- and repeat-customer metrics
-(`new_customers`, `new_customer_order_count`, `new_customer_net_revenue`,
-`repeat_customer_*`, and the CAC built on them): their catalog filter names
-`valid_order_sequence`, which the customer tables publish as
-`sm_valid_order_sequence`. Compute those with SQL using the published name, as
-in `QUERY_PATTERNS.md`, and say why in the notes.
+When `query_metrics` refuses a metric, compute it with SQL from the catalog row
+and say why in the notes. A catalog whose new- and repeat-customer filters still
+name `valid_order_sequence` (the customer tables publish it as
+`sm_valid_order_sequence`) is refused for exactly those metrics and the CAC
+built on them; use the published name, as in `QUERY_PATTERNS.md`.
 
 Reading the catalog:
 

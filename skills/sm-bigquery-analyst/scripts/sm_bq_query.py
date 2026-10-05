@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Run safe, cost-capped BigQuery SELECT queries for SourceMedium analysis.
 
-Rows go to stdout. The receipt (status, dry-run bytes, statement type,
-referenced tables, rows returned, truncation) goes to stderr as JSON.
+After execution, rows go to stdout and the JSON receipt (status, dry-run
+bytes, statement type, referenced tables, rows returned, truncation) goes to
+stderr. A dry run, or a query blocked before execution, has no rows: its
+receipt is the output, on stdout.
 """
 
 from __future__ import annotations
@@ -26,7 +28,7 @@ EXIT_EXECUTION_FAILED = 6
 EXIT_TRUNCATED = 7
 
 BANNED_STATEMENTS = re.compile(
-    r"\b(INSERT|UPDATE|DELETE|MERGE|CREATE|DROP|ALTER|TRUNCATE|EXPORT|COPY|LOAD|GRANT|REVOKE|CALL|EXECUTE|DECLARE|SET|BEGIN)\b",
+    r"\b(INSERT|UPDATE|DELETE|MERGE|CREATE|DROP|ALTER|TRUNCATE|EXPORT|COPY|LOAD|GRANT|REVOKE|CALL)\b",
     re.IGNORECASE,
 )
 # One left-to-right pass over comments, strings, and backtick identifiers, so a
@@ -53,7 +55,7 @@ def validate_sql(sql: str) -> None:
     if not re.match(r"^\(*\s*(SELECT|WITH)\b", normalized, re.IGNORECASE):
         raise ValueError("Only SELECT or WITH queries are allowed")
     if BANNED_STATEMENTS.search(normalized):
-        raise ValueError("Query contains a blocked DDL/DML/scripting statement")
+        raise ValueError("Query contains a blocked DDL/DML/admin statement")
 
 
 def read_sql(args: argparse.Namespace) -> str:
@@ -64,13 +66,14 @@ def read_sql(args: argparse.Namespace) -> str:
     return sys.stdin.read()
 
 
-def render(rows: list[dict], fmt: str) -> str:
+def render(rows: list[dict], fmt: str, columns: list[str] | None = None) -> str:
+    """Render rows; CSV columns follow `columns` (the query's order) when given."""
     if fmt == "json":
         return json.dumps(rows)
     if fmt == "prettyjson":
         return json.dumps(rows, indent=2)
     out = io.StringIO()
-    fields: list[str] = []
+    fields: list[str] = list(columns or [])
     for row in rows:
         fields.extend(key for key in row if key not in fields)
     writer = csv.DictWriter(out, fieldnames=fields, lineterminator="\n")
@@ -80,8 +83,8 @@ def render(rows: list[dict], fmt: str) -> str:
     return out.getvalue().rstrip("\n")
 
 
-def emit_receipt(receipt: dict) -> None:
-    print(json.dumps(receipt, indent=2), file=sys.stderr)
+def emit_receipt(receipt: dict, *, after_rows: bool = False) -> None:
+    print(json.dumps(receipt, indent=2), file=sys.stderr if after_rows else sys.stdout)
 
 
 def main() -> int:
@@ -123,6 +126,7 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return EXIT_DRY_RUN_FAILED
 
+    columns = estimate.pop("columns")
     receipt = {**estimate, "maximum_bytes_billed": args.maximum_bytes_billed}
     if estimate["statement_type"] != "SELECT":
         emit_receipt({**receipt, "status": "rejected_statement_type"})
@@ -147,14 +151,15 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return EXIT_EXECUTION_FAILED
 
-    print(render(rows, args.format))
+    print(render(rows, args.format, columns))
     emit_receipt(
         {
             **receipt,
             "status": "truncated" if truncated else "executed",
             "rows_returned": len(rows),
             "truncated": truncated,
-        }
+        },
+        after_rows=True,
     )
     return EXIT_TRUNCATED if truncated else 0
 

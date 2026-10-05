@@ -60,6 +60,9 @@ def dry_run(project: str | None, location: str | None, sql: str) -> dict:
         "referenced_tables": [
             f"{t['projectId']}.{t['datasetId']}.{t['tableId']}" for t in query.get("referencedTables", [])
         ],
+        # Query order. bq's JSON rows sort their keys, so a renderer that needs
+        # column order (CSV) takes it from here.
+        "columns": [field["name"] for field in query.get("schema", {}).get("fields", [])],
     }
 
 
@@ -122,7 +125,10 @@ def resolve_layout(
 
     Explicit dataset flags win, then `--tenant`, then what the caller can see:
     a dataset listing returns only the datasets the caller can read, so on the
-    shared project a customer sees their own prefix and nothing else.
+    shared project a customer sees their own prefix and nothing else. When the
+    listing itself is not permitted, the unprefixed default names are used, as
+    they were before resolution existed; the access checks that follow report
+    whether those names work.
     """
     if tenant:
         prefix, source = f"{normalize_tenant(tenant)}_", "--tenant"
@@ -132,8 +138,14 @@ def resolve_layout(
         prefix = named[: -len(base)] if named.endswith(base) else ""
         source = "explicit dataset flags"
     else:
-        visible = list_datasets(project, location)
-        if "sm_transformed_v2" in visible:
+        try:
+            visible = list_datasets(project, location)
+        except BqError as exc:
+            visible = None
+            listing_error = str(exc).splitlines()[-1] if str(exc) else "listing failed"
+        if visible is None:
+            prefix, source = "", f"defaults (dataset listing unavailable: {listing_error})"
+        elif "sm_transformed_v2" in visible:
             prefix, source = "", "dataset listing"
         else:
             prefixes = sorted({d[: -len("sm_transformed_v2")] for d in visible if d.endswith("_sm_transformed_v2")})

@@ -39,8 +39,8 @@ Use the MCP first whenever it is connected:
    and `allowed_datasets`.
 2. Named SourceMedium metrics: `search_data_catalog`, then `query_metrics`. Its
    result includes the compiled SQL; use that as the SQL receipt. Do not hand-roll
-   a catalog metric that `query_metrics` accepts. Today it refuses the new- and
-   repeat-customer metrics (see `references/ANALYSIS_SEMANTICS.md`).
+   a catalog metric that `query_metrics` accepts; when it refuses one, say why
+   and fall back to SQL (`references/ANALYSIS_SEMANTICS.md`).
 3. Custom SQL over SourceMedium datasets: `run_bigquery_sql`. On a dedicated
    warehouse it also reaches the customer's own datasets in the same project
    and region, for direct workspace members, within about 15 minutes of a
@@ -213,9 +213,10 @@ agent cannot execute them, follow the same checks manually.
   warehouse layout and prints the dataset names to use.
 - `scripts/sm_bq_discover.py`: tables, metrics (with filters), stores, schemas,
   and categorical values, every query capped.
-- `scripts/sm_bq_query.py`: SELECT-only dry-run and capped execution. Rows go to
-  stdout; the JSON receipt goes to stderr. Exit codes: 3 unsafe SQL, 4 dry-run
-  failed, 5 over the bytes cap, 6 execution failed, 7 truncated.
+- `scripts/sm_bq_query.py`: SELECT-only dry-run and capped execution. After
+  execution, rows go to stdout and the JSON receipt to stderr; a dry run's or a
+  blocked query's receipt is printed on stdout. Exit codes: 3 unsafe SQL,
+  4 dry-run failed, 5 over the bytes cap, 6 execution failed, 7 truncated.
 - `scripts/sm_bq_common.py`: shared helpers the three scripts import.
 - `scripts/qa_sm_bigquery_skill.py`: package and optional live QA for this skill.
 

@@ -91,7 +91,7 @@
     },
     {
       "prompt": "The SourceMedium MCP is connected. How many new customers did we get last month?",
-      "expected": "Tries query_metrics, and when it refuses new_customers (its catalog filter names valid_order_sequence), computes the count with run_bigquery_sql using sm_valid_order_sequence, valid orders, and the catalog's channel filter, and says why in the notes."
+      "expected": "Tries query_metrics, and if it refuses new_customers (a catalog filter naming valid_order_sequence), computes the count with run_bigquery_sql using sm_valid_order_sequence, valid orders, and the catalog's channel filter, and says why in the notes."
     }
   ]
 }

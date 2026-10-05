@@ -84,7 +84,13 @@ def validate_sql_offline() -> bool:
         ("DDL after a comment rejected", "-- note\nCREATE TABLE t AS SELECT 1", False),
         ("scripting rejected", "SELECT 1 FROM t WHERE x IN (SELECT 1); EXECUTE IMMEDIATE 'DROP TABLE t'", False),
     ]
-    ok = True
+    from sm_bq_query import render
+
+    csv_header = render([{"a": 1, "z": 2}], "csv", ["z", "a"]).splitlines()[0]
+    order_ok = csv_header == "z,a"
+    print(f"{'PASS' if order_ok else 'FAIL'} CSV columns follow the query's order, not bq's sorted keys")
+
+    ok = order_ok
     for name, sql, accepted in cases:
         try:
             validate_sql(sql)
@@ -93,6 +99,47 @@ def validate_sql_offline() -> bool:
             passed = not accepted
         print(f"{'PASS' if passed else 'FAIL'} {name}")
         ok = ok and passed
+    return ok
+
+
+def validate_layout_offline() -> bool:
+    """Warehouse resolution, with the dataset listing stubbed."""
+    sys.path.insert(0, str(SCRIPTS))
+    import sm_bq_common
+
+    def listing(datasets):
+        def fake(project, location):
+            if isinstance(datasets, Exception):
+                raise datasets
+            return datasets
+        return fake
+
+    cases = [
+        ("dedicated project resolves unprefixed", ["sm_metadata", "sm_transformed_v2", "sm_utils"], {}, "sm_transformed_v2", "dedicated"),
+        ("one visible prefix resolves the shared lane", ["acme_sm_metadata", "acme_sm_transformed_v2", "sm_utils"], {}, "acme_sm_transformed_v2", "shared"),
+        ("--tenant normalizes the prefix", [], {"tenant": "9-Lives Co"}, "_9livesco_sm_transformed_v2", "shared"),
+        ("explicit flags keep their prefix for sibling datasets", [], {"transformed_dataset": "acme_sm_transformed_v2"}, "acme_sm_transformed_v2", "shared"),
+        ("listing not permitted falls back to defaults", sm_bq_common.BqError("Access Denied"), {}, "sm_transformed_v2", "dedicated"),
+    ]
+    ok = True
+    original = sm_bq_common.list_datasets
+    try:
+        for name, datasets, kwargs, expected_transformed, expected_lane in cases:
+            sm_bq_common.list_datasets = listing(datasets)
+            layout = sm_bq_common.resolve_layout("sm-acme", None, **kwargs)
+            passed = layout["datasets"]["sm_transformed_v2"] == expected_transformed and layout["lane"] == expected_lane
+            print(f"{'PASS' if passed else 'FAIL'} {name}")
+            ok = ok and passed
+        sm_bq_common.list_datasets = listing(["a_sm_transformed_v2", "b_sm_transformed_v2"])
+        try:
+            sm_bq_common.resolve_layout("sourcemedium-bi", None)
+            passed = False
+        except sm_bq_common.BqError:
+            passed = True
+        print(f"{'PASS' if passed else 'FAIL'} several visible prefixes ask for --tenant")
+        ok = ok and passed
+    finally:
+        sm_bq_common.list_datasets = original
     return ok
 
 
@@ -108,6 +155,7 @@ def main() -> int:
     checks.append(validate_json_files())
     checks.append(run("scripts compile", [sys.executable, "-m", "py_compile", *map(str, SCRIPTS.glob("*.py"))]))
     checks.append(validate_sql_offline())
+    checks.append(validate_layout_offline())
 
     for script in ["sm_bq_doctor.py", "sm_bq_discover.py", "sm_bq_query.py"]:
         checks.append(run(f"{script} --help", [sys.executable, str(SCRIPTS / script), "--help"]))
@@ -149,7 +197,10 @@ def main() -> int:
             "GROUP BY sm_channel ORDER BY order_count DESC LIMIT 10"
         )
         query_cmd = [sys.executable, str(SCRIPTS / "sm_bq_query.py"), *common]
-        checks.append(run("live safe dry-run", [*query_cmd, "--dry-run", "--sql", query]))
+        dry = subprocess.run([*query_cmd, "--dry-run", "--sql", query], text=True, capture_output=True, check=False)
+        dry_ok = dry.returncode == 0 and '"status": "validated"' in dry.stdout
+        print(f"{'PASS' if dry_ok else 'FAIL'} live safe dry-run prints its receipt on stdout")
+        checks.append(dry_ok)
         checks.append(
             run(
                 "live cost cap blocks execution",
@@ -159,6 +210,43 @@ def main() -> int:
         )
         checks.append(run("live bounded execution", [*query_cmd, "--sql", query]))
         checks.append(run("live SQL opening with a comment runs", [*query_cmd, "--sql", "-- note\n" + query]))
+        csv = subprocess.run(
+            [*query_cmd, "--format", "csv", "--sql", "SELECT 2 AS z, 1 AS a"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        csv_ok = csv.returncode == 0 and csv.stdout.splitlines()[:1] == ["z,a"]
+        print(f"{'PASS' if csv_ok else 'FAIL'} live CSV keeps the query's column order")
+        checks.append(csv_ok)
+        discover = [sys.executable, str(SCRIPTS / "sm_bq_discover.py"), *common]
+        checks.append(
+            run(
+                "live --schema needs no dataset resolution",
+                [*discover, "--schema", f"{transformed}.obt_orders"],
+            )
+        )
+        checks.append(
+            run(
+                "live --categorical bounded by --days",
+                [
+                    *discover,
+                    "--categorical",
+                    f"{transformed}.obt_orders.sm_channel",
+                    "--days",
+                    "30",
+                    "--date-column",
+                    "order_processed_at_local_datetime",
+                ],
+            )
+        )
+        checks.append(
+            run(
+                "live --days without --date-column is refused",
+                [*discover, "--categorical", f"{transformed}.obt_orders.sm_channel", "--days", "30"],
+                expect=3,
+            )
+        )
         checks.append(
             run(
                 "live truncation is reported, not silent",

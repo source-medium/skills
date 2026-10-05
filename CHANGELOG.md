@@ -13,8 +13,9 @@
     same SQL runs through the MCP on the shared warehouse (`sourcemedium-bi`,
     `<tenant>_sm_*`) and on a dedicated one. The doctor resolves and prints the
     real names for direct access.
-  - Notes that `query_metrics` refuses the new- and repeat-customer metrics
-    today, and shows the SQL that computes them.
+  - Says what to do when `query_metrics` refuses a metric, including the
+    new- and repeat-customer metrics on catalogs that name
+    `valid_order_sequence`.
   - Fixes cohort LTV: sum, then divide, across channels and segments. It was
     `AVG(cumulative / cohort_size)`, which understated real cohorts by 11% to 15%.
   - New customers use `sm_valid_order_sequence`, not `order_sequence`.
@@ -56,6 +57,9 @@
   customer tables may live, order joins on `sm_store_id` + `source_system` +
   `order_id`, and gating on SourceMedium's publish log.
 - QA:
+  - `qa_sm_bigquery_skill.py` drops `--live-execute`, `--metadata-dataset` and
+    `--transformed-dataset`: `--project` now always runs the bounded live
+    checks, and `--tenant` selects a shared-warehouse tenant.
   - `scripts/qa_sql_examples.py` dry-runs and executes every shipped SQL
     example against a live warehouse and fails on unknown placeholders.
   - `just qa-live` runs it on both warehouse layouts.

@@ -35,8 +35,8 @@ across Claude Code, Codex, OpenClaw-style agents, and ordinary browsers.
    - Warehouse names: SourceMedium has a dedicated layout (`sm_transformed_v2`,
      ...) and a shared one (`sourcemedium-bi` with `<tenant>_sm_*` datasets).
      Take the names from the SourceMedium MCP's `get_data_context` (or, with
-     direct access, `sm-bigquery-analyst/scripts/sm_bq_doctor.py`); never
-     assume them.
+     direct access and the `sm-bigquery-analyst` skill installed, its
+     `scripts/sm_bq_doctor.py`); never assume them.
    - SourceMedium metadata: `<sm_metadata>.dim_data_dictionary`
    - Metric catalog: `<sm_metadata>.dim_semantic_metric_catalog`, including
      `filter_condition` (its `calculation` column is documentation, not SQL)

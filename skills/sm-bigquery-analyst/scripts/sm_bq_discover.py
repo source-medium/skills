@@ -149,21 +149,24 @@ def main() -> int:
     if not any([args.tables, args.metrics, args.stores, args.schema, args.categorical]):
         args.tables = args.metrics = args.stores = True
 
-    try:
-        layout = resolve_layout(
-            args.project,
-            args.location,
-            tenant=args.tenant,
-            metadata_dataset=args.metadata_dataset,
-            transformed_dataset=args.transformed_dataset,
-        )
-    except BqError as exc:
-        print(str(exc), file=sys.stderr)
-        return EXIT_QUERY_FAILED
-    metadata = layout["datasets"]["sm_metadata"]
-    transformed = layout["datasets"]["sm_transformed_v2"]
-    print(f"# SourceMedium discovery: {args.project} ({layout['lane']} lane)")
-    print(f"\nDatasets: {json.dumps(layout['datasets'])}")
+    # Only the tables, metrics, and stores sections read SourceMedium's datasets;
+    # --schema and --categorical name theirs, so they never depend on resolution.
+    if args.tables or args.metrics or args.stores:
+        try:
+            layout = resolve_layout(
+                args.project,
+                args.location,
+                tenant=args.tenant,
+                metadata_dataset=args.metadata_dataset,
+                transformed_dataset=args.transformed_dataset,
+            )
+        except BqError as exc:
+            print(str(exc), file=sys.stderr)
+            return EXIT_QUERY_FAILED
+        metadata = layout["datasets"]["sm_metadata"]
+        transformed = layout["datasets"]["sm_transformed_v2"]
+        print(f"# SourceMedium discovery: {args.project} ({layout['lane']} lane)")
+        print(f"\nDatasets: {json.dumps(layout['datasets'])}")
 
     if args.tables:
         query_section(args, args.project, "Available SourceMedium tables", table_discovery_sql(args.project, metadata), 5000)

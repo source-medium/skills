@@ -356,6 +356,13 @@ def spec_validator_cases() -> bool:
             require_text="never write to SourceMedium",
         )
         ok &= case(
+            "smdelivery_* destination dataset rejected",
+            CLEAN_SOURCE + "destination: {project: acme-data, dataset_raw: smdelivery_raw}\n"
+            "streams:\n  - name: s\n    grain: [id]\n    primary_key: [id]\n"
+            "    load: {mode: snapshot}\n" + CLEAN_STREAM_TAIL,
+            require_text="never write to SourceMedium",
+        )
+        ok &= case(
             "shared warehouse project rejected as a destination",
             CLEAN_SOURCE + "destination: {project: sourcemedium-bi, dataset_raw: loyalty_raw}\n"
             "streams:\n  - name: s\n    grain: [id]\n    primary_key: [id]\n"
