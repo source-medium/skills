@@ -32,6 +32,13 @@ Not best for:
 - Dashboards that need governed, scheduled refresh
 - Dashboards where row-level permissions must be enforced in the BI layer
 
+## BI Tools Need Direct Warehouse Access
+
+Metabase, Looker Studio data sources, Tableau, and Power BI query BigQuery with
+the customer's own credentials, which is direct warehouse access: part of Pro,
+the dedicated warehouse. On Foundation, the deliverable is the HTML dashboard,
+built from SourceMedium MCP results.
+
 ## Metabase
 
 Metabase handoff should include:

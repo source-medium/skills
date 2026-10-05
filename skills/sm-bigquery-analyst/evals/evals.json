@@ -12,6 +12,11 @@
       "expected": "Uses the skill because the request is setup and access verification for SourceMedium BigQuery."
     },
     {
+      "prompt": "My SourceMedium warehouse is on the shared project. Which datasets should I query for my orders?",
+      "should_trigger": true,
+      "expected": "Uses the skill: reads the tenant-prefixed dataset names from get_data_context and queries through the SourceMedium MCP, not bq, because the shared warehouse (Foundation) has no direct warehouse access."
+    },
+    {
       "prompt": "Join my inventory snapshots table to SM order lines so I can see low-stock SKUs with recent sales.",
       "should_trigger": true,
       "expected": "Uses the skill because the request mixes operator-owned warehouse data with SourceMedium metrics."
@@ -34,7 +39,7 @@
     },
     {
       "prompt": "Show customer LTV by monthly cohort for the first year.",
-      "expected": "Uses an rpt_cohort_ltv table and filters sm_order_line_type to exactly one value, usually all_orders, before reporting LTV."
+      "expected": "Uses rpt_cohort_ltv_by_first_valid_purchase_attribute_no_product_filters with exactly one sm_order_line_type (usually all_orders) and acquisition_order_filter_dimension = 'no_filters', sums across sm_channel and stores, computes SAFE_DIVIDE(SUM(cumulative_order_net_revenue), SUM(cohort_size)), never AVG of per-row ratios, keeps only mature cohorts for each offset, and shows cohort size."
     },
     {
       "prompt": "Combine my support tickets with SourceMedium customers to compare ticket volume by subscriber status.",
@@ -62,7 +67,31 @@
     },
     {
       "prompt": "Calculate MER and CAC for last month.",
-      "expected": "Resolves metric aliases through dim_semantic_metric_catalog when possible, identifies MER as revenue/ad spend and CAC/CPA as ad spend/new customers, and states chosen metric definitions."
+      "expected": "Resolves aliases in dim_semantic_metric_catalog (or uses query_metrics when the SourceMedium MCP is connected), reads filter_condition rather than treating calculation as SQL, aggregates order revenue on obt_orders and ad spend on rpt_ad_performance_daily separately, joins on date, then divides; CAC uses first valid orders (sm_valid_order_sequence = '1st_order') in online_dtc, amazon, and tiktok_shop."
+    },
+    {
+      "prompt": "How many new customers did we acquire last month?",
+      "expected": "Counts COUNT(DISTINCT sm_customer_key) on valid orders with sm_valid_order_sequence = '1st_order' and the catalog's channel filter, not order_sequence; notes that guest checkouts collapse into one customer key per store and source."
+    },
+    {
+      "prompt": "The SourceMedium MCP is connected. What was AOV by week this quarter?",
+      "expected": "Calls get_data_context, resolves AOV in search_data_catalog, and answers with query_metrics, using its compiled SQL as the receipt instead of hand-writing SQL through bq."
+    },
+    {
+      "prompt": "Join our loyalty table in our own GCP project to SourceMedium orders. We are on the shared warehouse.",
+      "expected": "Explains that joining its own tables to SourceMedium data in the warehouse needs direct warehouse access (Pro), which the shared warehouse does not have; offers to combine MCP results (up to 500 rows) with its data outside the warehouse and says so; does not reach for bq."
+    },
+    {
+      "prompt": "Give me every order from last year with its revenue.",
+      "expected": "Pushes back on a raw export, aggregates instead, and if rows are needed uses --max-rows deliberately; never presents a result that exited 7 (truncated) as complete."
+    },
+    {
+      "prompt": "I can't query BigQuery. Can you write the IAM request for our GCP admin?",
+      "expected": "Explains the two routes: the SourceMedium MCP on every plan, and direct BigQuery access on Pro, which SourceMedium grants from workspace membership rather than the customer's GCP admin; gives the steps from the access template."
+    },
+    {
+      "prompt": "The SourceMedium MCP is connected. How many new customers did we get last month?",
+      "expected": "Tries query_metrics, and when it refuses new_customers (its catalog filter names valid_order_sequence), computes the count with run_bigquery_sql using sm_valid_order_sequence, valid orders, and the catalog's channel filter, and says why in the notes."
     }
   ]
 }

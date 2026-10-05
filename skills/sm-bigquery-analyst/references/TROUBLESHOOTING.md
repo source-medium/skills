@@ -1,133 +1,154 @@
 # Troubleshooting
 
-Common failures and how to resolve them.
+Common failures and how to resolve them. Start with
+`python scripts/sm_bq_doctor.py --project <project>`: it names the failing step.
+
+## How Access Works
+
+- **Every plan** reaches the data through the SourceMedium MCP, signed in with
+  the user's SourceMedium account. Agency (partner) access works this way too.
+- **Direct warehouse access** (querying BigQuery with the user's own Google
+  account) is part of Pro, the dedicated warehouse:
+  - An accepted, direct workspace member is granted it automatically, usually
+    within minutes, with a full re-sync every few hours.
+  - The grant goes to the Google account whose email matches the workspace
+    membership. `gcloud auth list` must show that same account.
+  - Viewers can read and run queries; editors and admins can also create their
+    own datasets, and admins can grant the customer's own service accounts.
+  - The customer's own Google Cloud admin cannot grant it to people:
+    hand-added user grants of SourceMedium's managed warehouse roles are
+    removed at the next sync.
+- **Foundation plans have no direct warehouse access.** Use the MCP.
+
+So the fix for missing direct access on Pro is a workspace invitation, not an
+IAM ticket. Use `assets/BIGQUERY_ACCESS_REQUEST_TEMPLATE.md`.
 
 ## CLI Tool Issues
 
 ### gcloud or bq not found
 
 ```bash
-# Check if installed
 gcloud --version
-bq --version
-
-# If not installed, install Google Cloud SDK
-# macOS: brew install google-cloud-sdk
-# Or visit: https://cloud.google.com/sdk/docs/install
+bq version
+# Install the Google Cloud CLI: https://cloud.google.com/sdk/docs/install
 ```
 
 ### Wrong project
 
-```bash
-# Check current project
-gcloud config get-value project
+The doctor and the query scripts take `--project`, so the gcloud default does not
+have to match. To change the default anyway:
 
-# Set correct project
-gcloud config set project <PROJECT_ID>
+```bash
+gcloud config get-value project
+gcloud config set project <project>
 ```
 
 ## Authentication Issues
 
-### Not authenticated
+### Not authenticated, or the wrong Google account
 
 ```bash
-# Check authenticated accounts
 gcloud auth list
-
-# If empty or wrong account, authenticate
 gcloud auth login
-
-# Re-authenticate application default credentials
 gcloud auth application-default login
 ```
 
-### BigQuery API disabled
-
-**Error message:** "BigQuery API has not been used in project..."
-
-**Solution:** Enable BigQuery API in target project:
-1. Go to Google Cloud Console
-2. Navigate to APIs & Services > Library
-3. Search for "BigQuery API"
-4. Click Enable
+Sign in as the Google account that matches your SourceMedium workspace email.
 
 ## Permission Issues
 
 ### Access Denied: bigquery.jobs.create
 
-**What it means:** Cannot run query jobs in this project.
+You cannot run query jobs in this project. Either the plan has no direct
+warehouse access (use the MCP), your workspace membership has not synced yet
+(wait a few minutes after accepting the invitation), you are signed in as a
+different Google account, or your access is agency-only. If none applies,
+contact SourceMedium support.
 
-**Solution:** Request `roles/bigquery.jobUser` on the project.
+### Access Denied: bigquery.tables.getData, or "Not found: Dataset"
 
-### Access Denied: bigquery.tables.getData
-
-**What it means:** Cannot read data from the table.
-
-**Solution:** Request `roles/bigquery.dataViewer` on the dataset.
+- Use the dataset names `get_data_context` (or the doctor) reports. On the
+  shared warehouse they carry a tenant prefix: `<tenant>_sm_transformed_v2`.
+- You can read only your own tenant's datasets. A dataset named after another
+  tenant is not yours; never try a similar name.
+- A table listed only for the dedicated warehouse (see `SCHEMA.md`) does not
+  exist on the shared one.
 
 ### Table not found
 
-**What it means:** Either the table doesn't exist, or you don't have permission to see it.
-
-**Debug steps:**
-1. Verify the project ID is correct
-2. Verify the dataset name (e.g., `sm_transformed_v2`)
-3. Verify the table name
-4. If all names are correct, you may lack `roles/bigquery.dataViewer` on the dataset
+1. Verify the project and the resolved dataset names (doctor output).
+2. Verify the table name in `dim_data_dictionary`.
+3. Check whether the table exists on this warehouse layout (`SCHEMA.md`).
 
 ## Query Errors
 
-### Column not found: smcid
+### Unrecognized name: smcid / channel / order_date
 
-**Fix:** Use `sm_store_id` instead. The column `smcid` is an internal name that does not exist in customer tables.
+Those columns do not exist in customer tables. Use `sm_store_id`, `sm_channel`,
+and `DATE(order_processed_at_local_datetime)`. `SCHEMA.md` lists more.
 
-### Column not found: sm_marketing_channel
+### Unrecognized name: sm_marketing_channel
 
-**Fix:** Use `sm_channel` instead.
+Not on `obt_orders` (use `sm_channel`). It does exist on
+`fct_order_attribution_signals`.
 
-### Type mismatch in WHERE clause
+### Error comparing a TIMESTAMP to a DATE
 
-**Problem:** Comparing TIMESTAMP to DATE directly.
+UTC `*_at` columns are TIMESTAMPs, which BigQuery will not compare to a DATE.
+Report on the store-local column instead, through `DATE()`:
 
 ```sql
--- Wrong
-WHERE order_processed_at_local_datetime >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-
--- Correct
 WHERE DATE(order_processed_at_local_datetime) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 ```
 
+### A date range is missing most of its last day
+
+`*_local_datetime` columns are DATETIMEs. Compared to a DATE they run without
+error, but the DATE is read as midnight, so `<= DATE '2026-01-31'` drops
+everything after 00:00 on the 31st. Wrap the column:
+`DATE(order_processed_at_local_datetime) <= DATE '2026-01-31'`.
+
 ### Division by zero
 
-**Fix:** Always use `SAFE_DIVIDE(numerator, denominator)` instead of `numerator / denominator`.
+Use `SAFE_DIVIDE(numerator, denominator)`.
 
-## Cost / Performance Issues
+### A filter matches nothing
 
-### Query too expensive
+Categorical values are normalized (lowercase, underscores) for some columns and
+not others. List the real values with `SELECT DISTINCT` and match exactly.
 
-**Warning signs:**
-- "This query will process X GB"
-- Query takes longer than 30 seconds for simple aggregations
+## Result Problems
 
-**Solutions:**
-1. Add date filters: `WHERE DATE(column) >= '2024-01-01'`
-2. Add `LIMIT` clause
-3. Use partition filters if available
-4. Run with `--dry_run` first to check cost
+### Exit 7 / status `truncated`
+
+The result had more rows than `--max-rows`. Aggregate further or narrow the
+query; raise `--max-rows` only when the full row set is genuinely needed. Never
+present a truncated result as complete.
+
+### A number disagrees with SourceMedium's dashboards or the MCP
+
+Check, in order: the valid-order filter, the catalog definition and its
+`filter_condition`, the date column and timezone, store and channel scope, and
+whether a ratio was averaged instead of aggregated then divided.
+
+## Cost and Performance
+
+### Over the bytes cap (exit 5)
+
+1. Select fewer columns: BigQuery bills the columns read.
+2. Narrow the date range.
+3. Pre-aggregate in a CTE before joining.
+4. Raise `--maximum-bytes-billed` only with the user's approval.
 
 ### Resources exceeded
 
-**Problem:** Query uses too much memory.
-
-**Solutions:**
-1. Reduce date range
-2. Use `GROUP BY` on fewer columns
-3. Break into multiple smaller queries
+Reduce the date range, group by fewer columns, or split the work into smaller
+queries.
 
 ## Getting Help
 
-If issues persist:
-
-1. Run the setup verification commands from SKILL.md
-2. Copy the exact error message
-3. Share with your SourceMedium support contact
+1. Run the doctor and keep its output.
+2. Copy the exact error message.
+3. If the SourceMedium MCP is connected, `get_account_health` reports connection
+   and pipeline problems.
+4. Share both with SourceMedium support.

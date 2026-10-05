@@ -49,6 +49,15 @@
       ]
     },
     {
+      "prompt": "We're on SourceMedium's shared warehouse. Load our returns portal into BigQuery nightly and join it to SourceMedium orders.",
+      "should_trigger": true,
+      "expectations": [
+        "explains that bespoke pipelines need direct warehouse access, part of SourceMedium Pro, which the shared warehouse does not have",
+        "does not plan a destination in sourcemedium-bi or a <tenant>_sm_* dataset",
+        "does not build around the missing access"
+      ]
+    },
+    {
       "prompt": "What was my revenue by channel last month?",
       "should_trigger": false,
       "expectations": [

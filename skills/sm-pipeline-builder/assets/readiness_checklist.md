@@ -64,14 +64,17 @@ box unless the exception is written down with an owner and a date.
 
 ## Integrate (when joining SourceMedium data)
 
-- [ ] Reads `sm_*` datasets only; writes to customer-owned datasets only
+- [ ] Reads SourceMedium datasets only; writes to customer-owned datasets only
+  (never `sm_*`, `<tenant>_sm_*`, or anything in `sourcemedium-bi`)
 - [ ] Joins use verified keys with cardinality checked; customer side
   pre-aggregated unless 1:1 proven
 - [ ] `is_order_sm_valid = TRUE` (or the relevant validity flag) applied
-- [ ] Metric names resolved via the semantic catalog, not guessed columns
-- [ ] Freshness gated on SourceMedium's publish date, not assumed partitions
-- [ ] Order joins use the source-platform `order_id` scoped by `sm_store_id`,
-  never SourceMedium's internal `sm_order_key`
+- [ ] Metric names resolved via the semantic catalog, with each metric's
+  `filter_condition` applied; ratios aggregated before dividing
+- [ ] Freshness gated on SourceMedium's publish evidence (job log or
+  `table_last_data_date`), not assumed partitions or the clock
+- [ ] Order joins use the source-platform `order_id` scoped by `sm_store_id`
+  and `source_system`, never SourceMedium's internal `sm_order_key`
 
 ## Publish (when writing outside the warehouse)
 
