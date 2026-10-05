@@ -74,6 +74,10 @@ def validate_skill_md() -> bool:
         ("body references the comparator", "scripts/sm_reconcile_orders.py" in text),
         ("body references the QA harness", "scripts/qa_sm_data_validation_skill.py" in text),
         ("body references the manual export", "assets/MANUAL_SHOPIFY_EXPORT.md" in text),
+        ("body references the readiness checklist", "assets/READINESS_CHECKLIST.md" in text),
+        ("body opens with Before you start ahead of Workflow", 0 < text.find("## Before you start") < text.find("## Workflow")),
+        ("Before you start names the BigQuery roles", "roles/bigquery.jobUser" in text and "roles/bigquery.dataViewer" in text),
+        ("Before you start says what is never requested", "### Never requested" in text),
         ("body requires window padding", "pad" in text.lower()),
         ("body forbids credentials", "credential" in text.lower()),
     ]

@@ -15,7 +15,7 @@ metadata:
   author: sourcemedium
   version: "0.1"
   short-description: "Reconcile SourceMedium data against raw source exports."
-  requirements: "Read access to the SourceMedium BigQuery project, plus at least one way to obtain a raw export: gcloud/bq, a browser the agent can drive, or a human who can download a CSV. Python 3.9+ for the comparator script."
+  requirements: "Read access to the SourceMedium BigQuery project (jobUser + dataViewer on sm_transformed_v2 and sm_metadata) with gcloud/bq authenticated, the sm-bigquery-analyst skill, Python 3.9+, and one raw-data vector: a raw table in BigQuery, a browser the agent may drive with the operator signed in to Shopify admin, or an operator who can export a CSV. See Before you start."
 ---
 
 # SourceMedium Data Validation
@@ -31,14 +31,78 @@ to a named cause. Never declare data "wrong" or "right" from a total alone.
 Shopify orders are the fully specified path in v0.1. The protocol is
 source-agnostic; `references/OTHER_SOURCES.md` says how to extend it.
 
-## Requirements
+## Before you start
 
-- Read access to the tenant's SourceMedium project (`sm-<tenant_id>`), the
-  same access the `sm-bigquery-analyst` skill verifies. Install that skill
-  too: this one reuses its discovery rules, safety rules, and query helper.
-- One raw-data vector (see **Acquire the raw data**). Having none is not a
-  blocker: the human can export a CSV.
-- `python3` (3.9+) for `scripts/sm_reconcile_orders.py`.
+Nothing here can be skipped, and nothing here requires the operator to hand
+the agent a credential. Walk through it with the operator first, or give
+them `assets/READINESS_CHECKLIST.md`, which says the same thing in their
+language. Do not touch data until every item that applies is confirmed.
+
+### Always
+
+- **The claim, written down.** Metric, the exact report or dashboard it
+  came from on each side and any filter it carried, the window (inclusive
+  dates), the store, both stated figures, and the Shopify store's timezone
+  (Settings > General > Standards and formats). Without a window and a
+  report name there is nothing to validate.
+- **The SourceMedium project** (`sm-<tenant_id>`) and whether the tenant
+  has one `sm_store_id` or several.
+- **Warehouse access.** A Google account holding `roles/bigquery.jobUser`
+  on the project and `roles/bigquery.dataViewer` on `sm_transformed_v2` and
+  `sm_metadata`; `gcloud` and `bq` installed and authenticated; the
+  `sm-bigquery-analyst` skill installed and its doctor script passing. This
+  skill reuses that skill's discovery rules, safety rules, and query helper.
+  If access is missing, send the operator the request template at
+  `sm-bigquery-analyst/assets/BIGQUERY_ACCESS_REQUEST_TEMPLATE.md` and stop
+  until it is granted.
+- **Python 3.9+** on the machine that will run
+  `scripts/sm_reconcile_orders.py`.
+- **Two decisions from the operator:** the tolerances (default 0.01 per
+  order and 1.00 on the total, counts exact) and who receives the report.
+
+### Vector 1: raw data already in BigQuery
+
+- Project, dataset, and table of the raw Shopify orders, and
+  `roles/bigquery.dataViewer` on it for the same account.
+- Its grain (one row per order or per line item) and the timezone of its
+  timestamps; discover both before writing SQL.
+
+### Vector 2: the agent drives a browser
+
+- A browser tool the agent is permitted to use that shares the operator's
+  session, with site permission for `admin.shopify.com` granted in that
+  tool, on a machine where the operator is already signed in to Shopify
+  admin for the right store handle.
+- A Shopify staff account holding the **Reports** permission (Analytics
+  section of store permissions), which covers viewing, creating, and
+  exporting explorations. Explorations are available on every Shopify
+  plan, so there is no plan check.
+- The operator's two-step authentication device at hand. Shopify may ask
+  for a code when the admin opens (it did on the verification run); the
+  agent stops at the challenge and the human answers it.
+- The browser's download folder known and readable by the agent.
+- The operator reachable for the duration of the run.
+
+### Vector 3: the operator exports a CSV
+
+- For the Analytics exploration export (preferred): the **Reports**
+  permission, as in vector 2.
+- For the Orders page export (fallback): the **Orders** permission plus its
+  separate **Export** permission, and access to the inbox Shopify emails
+  date-range exports to.
+- A way to deliver the file to the agent.
+
+### Never requested
+
+Shopify passwords, authenticator codes, API tokens or access keys, and
+customer names, emails, or addresses. If a vector seems to need one of
+these, it is the wrong vector.
+
+### Ready when
+
+- The claim is pinned and the project and store are known.
+- A dry-run against the SourceMedium project succeeds.
+- One vector is chosen and every item under it is confirmed.
 
 ## Workflow
 
@@ -159,6 +223,8 @@ Read only what the step needs.
   query or check for each rung, ordered by how often it is the answer.
 - `references/OTHER_SOURCES.md` — how the protocol extends to ad platforms,
   Amazon, and subscription platforms, and which raw report to use for each.
+- `assets/READINESS_CHECKLIST.md` — the Before-you-start list in the
+  operator's language, to hand over before any data is touched.
 - `assets/MANUAL_SHOPIFY_EXPORT.md` — human-facing export instructions for
   vector 3.
 - `assets/shopifyql/` — the ShopifyQL files the browser and manual vectors

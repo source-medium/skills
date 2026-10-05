@@ -9,6 +9,23 @@ first.
 | ShopifyQL `sales` exploration (Analytics) | one row per order (with `GROUP BY order_id`) | yes, it is the same engine as the Analytics dashboards | yes |
 | Admin Orders page CSV | one row per **line item** | no, it is a different basis (created time, includes test and unpaid) | approximate |
 
+## Access and plan
+
+- Analytics explorations (the ShopifyQL editor) are available on every
+  Shopify plan. Only cross-store analytics is restricted to Plus and
+  Enterprise organizations, and this skill never needs it.
+- The staff permission is **Reports**, in the Analytics section of store
+  permissions: it "allows users to view and create reports". There is no
+  separate permission for exporting a report; **Dashboards** alone (Overview
+  and Live View) is not enough.
+- The Orders page export needs the **Orders** permission plus its distinct
+  **Export** permission ("allows users to export orders").
+- Two-step authentication: Shopify does not document when a code is
+  prompted; on the verification run the admin asked for one right after the
+  account picker. Plus organizations can require a secure sign-in method
+  for all users. The human answers the challenge; the agent never handles
+  codes.
+
 ## Shopify Analytics semantics
 
 These definitions are Shopify's, from its sales-report and ShopifyQL schema
@@ -257,3 +274,6 @@ id is empty or reads `Total` or `None`.
 - Exporting reports: https://help.shopify.com/en/manual/reports-and-analytics/shopify-reports/report-types/custom-reports/export-reports
 - Exporting orders (CSV columns, email threshold): https://help.shopify.com/en/manual/fulfillment/managing-orders/exporting-orders
 - Order API fields the export mirrors: https://shopify.dev/docs/api/admin-rest/latest/resources/order
+- Store permissions (Reports, Orders > Export): https://help.shopify.com/en/manual/your-account/users/roles/permissions/store-permissions
+- Explorations on all plans: https://help.shopify.com/en/manual/reports-and-analytics/shopify-reports/report-types/custom-reports/create-custom-explorations
+- Two-step authentication: https://help.shopify.com/en/manual/your-account/logging-in/two-step-authentication
