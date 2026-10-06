@@ -48,15 +48,18 @@ After any update, run:
 python scripts/qa_all_skills.py
 ```
 
-When live demo BigQuery access is available:
+When live BigQuery access is available (read-only):
 
 ```bash
 python scripts/qa_all_skills.py --project sm-democo
+# Shared warehouse layout:
+python scripts/qa_all_skills.py --project sourcemedium-bi --tenant <tenant> --names-only
 ```
 
-This exercises connectivity, metadata discovery, dry-runs, and cost caps.
-The demo warehouse's values are obfuscated, so never use it to confirm that
-a number or metric definition is correct — use a real tenant warehouse.
+This exercises connectivity, warehouse resolution, metadata discovery,
+dry-runs, cost caps, truncation reporting, and every SQL example the skills
+ship. The demo warehouse's values are obfuscated, so never use it to confirm
+that a number or metric definition is correct; use a real tenant warehouse.
 
 ## Agent Notes
 
@@ -69,3 +72,6 @@ a number or metric definition is correct — use a real tenant warehouse.
   copy-based install path.
 - Scripts are optional helpers. The core instructions remain in `SKILL.md` and
   `references/`, but running scripts improves reliability and QA evidence.
+- Agents with the SourceMedium MCP connected (Claude, ChatGPT, Claude Code,
+  Codex, Cursor, and others) should use its tools first for SourceMedium
+  metrics; the analyst skill says when to fall back to `bq`.

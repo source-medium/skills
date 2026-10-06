@@ -29,6 +29,24 @@
       ]
     },
     {
+      "prompt": "Add a cohort LTV heatmap to our retention dashboard.",
+      "should_trigger": true,
+      "expectations": [
+        "uses the cohort table with one sm_order_line_type and acquisition_order_filter_dimension = 'no_filters'",
+        "computes LTV as SUM(cumulative_order_net_revenue) / SUM(cohort_size) across sm_channel, never an average of per-row ratios",
+        "shows only mature offsets and cohort size, and flags small cohorts"
+      ]
+    },
+    {
+      "prompt": "Build a revenue dashboard; we are on SourceMedium's shared warehouse.",
+      "should_trigger": true,
+      "expectations": [
+        "queries through the SourceMedium MCP with the dataset names get_data_context reports",
+        "delivers the HTML dashboard rather than a BI-tool handoff that needs direct warehouse access",
+        "the strict manifest contains no unresolved <project> or <sm_*> placeholders"
+      ]
+    },
+    {
       "prompt": "Add a new dbt model for orders.",
       "should_trigger": false,
       "expectations": [

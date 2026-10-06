@@ -43,7 +43,7 @@ def validate_yaml_files() -> None:
 
 
 def py_compile_scripts() -> None:
-    scripts = sorted(str(path.relative_to(ROOT)) for path in ROOT.glob("skills/**/scripts/*.py"))
+    scripts = sorted(str(path.relative_to(ROOT)) for path in [*ROOT.glob("skills/**/scripts/*.py"), *ROOT.glob("scripts/*.py")])
     if scripts:
         run([sys.executable, "-m", "py_compile", *scripts])
 
@@ -88,24 +88,19 @@ def basic_validate_skill(skill_dir: Path) -> None:
     print(f"skill ok: {skill_dir.name}")
 
 
-def package_specific_qa(project: str | None) -> None:
+def package_specific_qa(project: str | None, tenant: str | None, names_only: bool) -> None:
+    # The dashboard QA validates the templates and proves --strict refuses them
+    # until their placeholders are resolved.
     dashboard_qa = SKILLS_DIR / "sm-dashboard-builder" / "scripts" / "qa_sm_dashboard_skill.py"
     if dashboard_qa.exists():
         run([sys.executable, str(dashboard_qa)])
 
-    dashboard_validator = SKILLS_DIR / "sm-dashboard-builder" / "scripts" / "validate_dashboard_manifest.py"
-    dashboard_manifest = SKILLS_DIR / "sm-dashboard-builder" / "assets" / "dashboard_manifest_template.json"
-    dashboard_example = SKILLS_DIR / "sm-dashboard-builder" / "assets" / "examples" / "executive_overview_manifest.json"
-    if dashboard_validator.exists():
-        run([sys.executable, str(dashboard_validator), str(dashboard_manifest), "--strict"])
-        run([sys.executable, str(dashboard_validator), str(dashboard_example), "--strict"])
-
+    live = ["--project", project] + (["--tenant", tenant] if tenant else []) if project else []
     analyst_qa = SKILLS_DIR / "sm-bigquery-analyst" / "scripts" / "qa_sm_bigquery_skill.py"
     if analyst_qa.exists():
-        cmd = [str(analyst_qa)]
-        if project:
-            cmd.extend(["--project", project])
-        run(cmd)
+        run([sys.executable, str(analyst_qa), *live])
+    if project:
+        run([sys.executable, str(ROOT / "scripts" / "qa_sql_examples.py"), *live, *(["--names-only"] if names_only else [])])
 
     pipeline_qa = SKILLS_DIR / "sm-pipeline-builder" / "scripts" / "qa_sm_pipeline_skill.py"
     if pipeline_qa.exists():
@@ -140,7 +135,9 @@ def cleanup_python_cache() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--project", help="Optional BigQuery project for live analyst QA")
+    parser.add_argument("--project", help="Optional BigQuery project for live QA, such as sm-democo")
+    parser.add_argument("--tenant", help="Shared-lane tenant id, with --project sourcemedium-bi")
+    parser.add_argument("--names-only", action="store_true", help="Live SQL examples: dry-run only, no row requirement")
     parser.add_argument("--skip-cli-discovery", action="store_true", help="Skip npx skills discovery checks")
     args = parser.parse_args()
 
@@ -149,7 +146,7 @@ def main() -> int:
     validate_json_files()
     validate_yaml_files()
     py_compile_scripts()
-    package_specific_qa(args.project)
+    package_specific_qa(args.project, args.tenant, args.names_only)
     if not args.skip_cli_discovery:
         skill_cli_discovery()
     cleanup_python_cache()

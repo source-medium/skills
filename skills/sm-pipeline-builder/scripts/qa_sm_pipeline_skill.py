@@ -348,6 +348,34 @@ def spec_validator_cases() -> bool:
             "streams:\n  - name: s\n    grain: [id]\n    primary_key: [id]\n"
             "    load: {mode: snapshot}\n" + CLEAN_STREAM_TAIL,
         )
+        ok &= case(
+            "shared-lane <tenant>_sm_* destination dataset rejected",
+            CLEAN_SOURCE + "destination: {project: acme-data, dataset_clean: acme_sm_transformed_v2}\n"
+            "streams:\n  - name: s\n    grain: [id]\n    primary_key: [id]\n"
+            "    load: {mode: snapshot}\n" + CLEAN_STREAM_TAIL,
+            require_text="never write to SourceMedium",
+        )
+        ok &= case(
+            "smdelivery_* destination dataset rejected",
+            CLEAN_SOURCE + "destination: {project: acme-data, dataset_raw: smdelivery_raw}\n"
+            "streams:\n  - name: s\n    grain: [id]\n    primary_key: [id]\n"
+            "    load: {mode: snapshot}\n" + CLEAN_STREAM_TAIL,
+            require_text="never write to SourceMedium",
+        )
+        ok &= case(
+            "shared warehouse project rejected as a destination",
+            CLEAN_SOURCE + "destination: {project: sourcemedium-bi, dataset_raw: loyalty_raw}\n"
+            "streams:\n  - name: s\n    grain: [id]\n    primary_key: [id]\n"
+            "    load: {mode: snapshot}\n" + CLEAN_STREAM_TAIL,
+            require_text="shared warehouse project",
+        )
+        ok &= case(
+            "customer dataset that merely contains sm_ accepted",
+            CLEAN_SOURCE + "destination: {project: acme-data, dataset_raw: acme_sm_loyalty_raw}\n"
+            "streams:\n  - name: s\n    grain: [id]\n    primary_key: [id]\n"
+            "    load: {mode: snapshot}\n" + CLEAN_STREAM_TAIL + CLEAN_COST,
+            expect=0,
+        )
 
         # --- hard rule 13: specs name secrets, never carry them --------------------
         ok &= case(

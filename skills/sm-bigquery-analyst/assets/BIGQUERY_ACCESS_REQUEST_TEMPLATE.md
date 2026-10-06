@@ -1,62 +1,75 @@
 # BigQuery Access Request Template
 
-Use this when a user cannot query data and needs their internal admin to grant access.
+Use this when a user cannot reach SourceMedium data.
 
-## Minimum access model (least privilege)
+## Two Ways In
 
-Grant the user (or group) these roles:
+- **Through SourceMedium, on every plan**: the SourceMedium MCP, signed in with
+  the user's SourceMedium account. It needs no BigQuery permissions. Agency
+  (partner) access works this way too.
+- **Direct warehouse access, on Pro**: the user's own Google account (or the
+  customer's service accounts) querying BigQuery on the dedicated warehouse.
+  Foundation plans do not include it; on Foundation, use the MCP.
 
-1. **Project level** (required to run query jobs):
-   - `roles/bigquery.jobUser`
-2. **Dataset level** (required to read/query data):
-   - `roles/bigquery.dataViewer` on `sm_transformed_v2`
-   - `roles/bigquery.dataViewer` on `sm_metadata`
+## How Direct Access Is Granted (Pro)
 
-Optional dataset access based on use case:
+SourceMedium grants it from membership in the customer's SourceMedium
+workspace. The customer's own Google Cloud admin cannot grant it to people.
 
-1. `roles/bigquery.dataViewer` on `sm_experimental` (MTA/experimental tables)
-2. `roles/bigquery.dataViewer` on any tenant custom datasets
+- **Who gets it**: accepted, direct members of the workspace.
+- **Which identity**: the Google account whose email matches the workspace
+  membership.
+- **What it includes**: viewers read SourceMedium's datasets and run queries;
+  editors and admins can also create their own datasets in the project; admins
+  can grant the customer's own service accounts.
+- **How fast**: usually within minutes of accepting the invitation.
 
-Notes:
+## What To Do
 
-1. `roles/bigquery.jobUser` must be granted on a project/folder/org resource.
-2. `roles/bigquery.dataViewer` can be granted at project, dataset, table, or view scope.
-3. If you prefer simplicity over least privilege, project-level `bigquery.dataViewer` works but is broader.
+1. **On Foundation, or with agency access**: connect the SourceMedium MCP to the
+   agent (https://docs.sourcemedium.com/ai-analyst/connect-an-ai-assistant).
+2. **On Pro, not a member yet**: ask a workspace admin (or editor) to invite
+   you, using the Google account you will sign in to `gcloud` with. Accept the
+   invitation.
+3. **On Pro, a member, but queries fail**: confirm `gcloud auth list` shows that
+   same account, wait a few minutes after accepting, then rerun
+   `python scripts/sm_bq_doctor.py --project <project>`.
+4. **Still failing**: send SourceMedium support the doctor output and the exact
+   error.
 
-## Copy/paste message for internal admin
+## Copy/paste message for a workspace admin (Pro)
 
 ```text
-Subject: BigQuery access request for SourceMedium analysis
+Subject: SourceMedium workspace invitation for BigQuery analysis
 
-Hi Admin Team,
+Hi,
 
-Please grant BigQuery access for:
-- Principal: <user-or-group-email>
-- Project: sm-<tenant_id>  (your SourceMedium BigQuery project)
+Please invite me to our SourceMedium workspace so I can query our SourceMedium
+data in BigQuery:
 
-Required permissions:
-1) Project-level role:
-   - roles/bigquery.jobUser
+- Google account: <your Google account email>
+- Role: Viewer (or Editor if I need to create my own datasets)
 
-2) Dataset-level roles:
-   - roles/bigquery.dataViewer on sm-<tenant_id>.sm_transformed_v2
-   - roles/bigquery.dataViewer on sm-<tenant_id>.sm_metadata
-
-Optional (if needed for MTA/experimental analysis):
-- roles/bigquery.dataViewer on sm-<tenant_id>.sm_experimental
-
-Success criteria after grant:
-- bq query --use_legacy_sql=false --dry_run 'SELECT 1 AS ok' succeeds
-- bq query --use_legacy_sql=false "SELECT 1 FROM \`sm-<tenant_id>.sm_transformed_v2.obt_orders\` WHERE is_order_sm_valid = TRUE LIMIT 1" succeeds
+SourceMedium grants BigQuery access automatically to accepted members; no
+Google Cloud change is needed on our side.
 
 Thanks.
 ```
 
-## Official Google docs
+## Copy/paste message for SourceMedium support
 
-1. BigQuery roles and permissions:
-   - https://cloud.google.com/bigquery/docs/access-control
-2. Grant dataset/table/view access in BigQuery:
-   - https://cloud.google.com/bigquery/docs/control-access-to-resources-iam
-3. Grant project-level IAM roles:
-   - https://cloud.google.com/iam/docs/granting-changing-revoking-access
+```text
+Subject: BigQuery access not working
+
+Workspace: <workspace name>
+Google account: <your Google account email>
+Project tried: <project>
+Doctor output and exact error:
+<paste here>
+```
+
+## Success Criteria
+
+- Through the MCP: `get_data_context` returns the warehouse and its datasets.
+- Directly (Pro): `python scripts/sm_bq_doctor.py --project <project>` passes
+  and prints your dataset names.

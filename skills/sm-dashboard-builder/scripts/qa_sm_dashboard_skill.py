@@ -46,6 +46,22 @@ def run(cmd: list[str], cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
     )
 
 
+def validate(path: Path, *, strict: bool) -> subprocess.CompletedProcess[str]:
+    cmd = [sys.executable, "scripts/validate_dashboard_manifest.py", str(path)]
+    if strict:
+        cmd.append("--strict")
+    return subprocess.run(cmd, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+
+
+def resolve_template(manifest: dict) -> dict:
+    """What an agent does before publishing: real names and a real freshness check."""
+    text = json.dumps(manifest).replace("<project>", "sm-acme").replace("<sm_transformed_v2>", "sm_transformed_v2")
+    resolved = json.loads(text)
+    for chart in resolved["charts"]:
+        chart["query_metadata"]["freshness_checked_at"] = "2026-01-02"
+    return resolved
+
+
 def main() -> int:
     skill_md = ROOT / "SKILL.md"
     text = skill_md.read_text(encoding="utf-8")
@@ -71,11 +87,22 @@ def main() -> int:
     run([sys.executable, "scripts/build_dashboard_html.py", "--help"])
     run([sys.executable, "scripts/validate_dashboard_manifest.py", "--help"])
     run([sys.executable, "scripts/validate_dashboard_manifest.py", str(manifest_path)])
-    run([sys.executable, "scripts/validate_dashboard_manifest.py", str(manifest_path), "--strict"])
+    run([sys.executable, "scripts/validate_dashboard_manifest.py", str(ROOT / "assets/examples/executive_overview_manifest.json")])
+
+    # The template is a template: strict mode must refuse it until its names are resolved.
+    template_strict = validate(manifest_path, strict=True)
+    assert_true(template_strict.returncode != 0, "Strict validation must reject the unresolved template")
+    assert_true("unresolved placeholders" in template_strict.stdout, "Strict rejection must name the placeholders")
 
     with tempfile.TemporaryDirectory() as tempdir:
+        resolved = resolve_template(manifest)
+        resolved_path = Path(tempdir) / "resolved.json"
+        resolved_path.write_text(json.dumps(resolved), encoding="utf-8")
+        resolved_strict = validate(resolved_path, strict=True)
+        assert_true(resolved_strict.returncode == 0, f"Resolved template must pass strict: {resolved_strict.stdout}")
+
         out = Path(tempdir) / "dashboard.html"
-        run([sys.executable, "scripts/build_dashboard_html.py", str(manifest_path), "--out", str(out), "--strict"])
+        run([sys.executable, "scripts/build_dashboard_html.py", str(resolved_path), "--out", str(out), "--strict"])
         html = out.read_text(encoding="utf-8")
         assert_true("vegaEmbed" in html, "Dashboard HTML must call vegaEmbed")
         assert_true("SQL Receipts" in html, "Dashboard HTML must include SQL receipts")
@@ -83,18 +110,15 @@ def main() -> int:
         assert_true("order_net_revenue" in html, "Dashboard HTML must preserve SQL receipt text")
         assert_true("Replace template data" in html, "Dashboard HTML must preserve QA notes")
 
-        bad_manifest = dict(manifest)
-        bad_manifest["charts"] = [dict(manifest["charts"][0], sql="DROP TABLE example")]
-        bad_path = Path(tempdir) / "bad.json"
-        bad_path.write_text(json.dumps(bad_manifest), encoding="utf-8")
-        failed = subprocess.run(
-            [sys.executable, "scripts/validate_dashboard_manifest.py", str(bad_path), "--strict"],
-            cwd=ROOT,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        assert_true(failed.returncode != 0, "Unsafe SQL should fail strict manifest validation")
+        for name, chart_patch in (
+            ("Unsafe SQL", {"sql": "DROP TABLE example"}),
+            ("A failed QA status", {"query_metadata": dict(resolved["charts"][0]["query_metadata"], qa_status="fail")}),
+            ("A non-date freshness check", {"query_metadata": dict(resolved["charts"][0]["query_metadata"], freshness_checked_at="soon")}),
+        ):
+            bad = dict(resolved, charts=[dict(resolved["charts"][0], **chart_patch)])
+            bad_path = Path(tempdir) / "bad.json"
+            bad_path.write_text(json.dumps(bad), encoding="utf-8")
+            assert_true(validate(bad_path, strict=True).returncode != 0, f"{name} should fail strict manifest validation")
 
     print("sm-dashboard-builder QA passed")
     return 0
