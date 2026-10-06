@@ -204,19 +204,19 @@ def comparator_cases() -> bool:
             require_text=(
                 "| Orders | 6 | 3 | -3 |",              # return-only row is not an order
                 "`match` | 1 | 0.00",                   # #1005: POS on Shopify, retail in SM, compared like any order
-                "`refund-attribution` | 1 | 20.00",     # #1002: SM has no refund yet
+                "`refund-attribution` | 1 | -20.00",    # #1002: SM carries a refund Shopify books later
                 "`day-shift` | 1 | -225.00",            # #1003: Shopify 08-02, SM local 08-03
                 "`prior-period-return` | 1 | 30.00",    # #0990: refund of an order sold before the window
                 "`sm-invalid` | 1 | -45.50",            # #1004: cancelled, SM invalid
                 "`sm-channel` | 1 | -60.00",            # #1006: SM draft_orders
                 "`missing-in-sm` | 1 | -99.00",         # #1008: no SM row
                 "`unexplained-sm-only` | 1 | 42.00",    # #1007: valid SM order Shopify lacks
-                "Headline net delta (SM - Shopify): **-337.50**",
+                "Headline net delta (SM - Shopify): **-377.50**",
                 "residual (unexplained classes): **-57.00** across 2 orders",
             ),
             forbid_text=("WARNING", "| `channel-basis` |"),
         )
-        for name in ("matched_deltas.csv", "shopify_only.csv", "sm_only.csv", "attribution.csv"):
+        for name in ("matched_deltas.csv", "shopify_only.csv", "sm_only.csv", "undated.csv", "attribution.csv"):
             ok = check(f"out-dir writes {name}", (Path(tempdir) / name).exists()) and ok
 
     ok &= run(
@@ -230,7 +230,7 @@ def comparator_cases() -> bool:
         "planted pair under --basis exclude-pos sets the POS order aside with its effect",
         planted + ["--basis", "exclude-pos"],
         expect=1,
-        require_text=("`channel-basis` | 1 | -270.00",),
+        require_text=("`channel-basis` | 1 | -270.00", "the export has no channel column"),
         forbid_text=("| `match` |",),
     )
     ok &= run(
@@ -242,10 +242,51 @@ def comparator_cases() -> bool:
             "Shopify export format: `orders_export`",
             "Orders-page export detected",
             "`match` | 2 | 0.00",              # #1005 (pos) and #1007 (two line rows, 2 x 21.00)
-            "`refund-attribution` | 1 | 20.00",
             "`sm-invalid` | 1 | -45.50",
+            "residual (unexplained classes): **0.00** across 0 orders",  # #1002's refund is on both sides
         ),
-        forbid_text=("| `missing-in-sm` |", "| `channel-basis` |"),
+        forbid_text=("| `missing-in-sm` |", "| `channel-basis` |", "| `refund-missing-in-sm` |"),
+    )
+
+    # Edge pair: refund direction, refunds across the window edge, an undated row.
+    edge = [py, str(RECONCILE), "--shopify", str(FIXTURES / "edge_shopify_sales_by_order.csv"),
+            "--sm", str(FIXTURES / "edge_sm_orders.csv"), "--window", "2026-08-01", "2026-08-02"]
+    ok &= run(
+        "edge pair: Shopify totals by row day, refund direction, edge reversals, undated rows",
+        edge,
+        expect=1,
+        require_text=(
+            "| net | 250.00 | 290.00 | 40.00 |",       # Shopify rows dated 08-01..08-02, as Shopify reports the window
+            "| Orders | 4 | 5 | +1 |",
+            "`refund-missing-in-sm` | 1 | 30.00",     # #2001: Shopify refund on 08-02, none in SM
+            "`refund-attribution` | 1 | -40.00",      # #2002: SM refund dated 08-20, after the export
+            "`refund-missing-in-shopify` | 1 | -25.00",  # #2003: SM refund dated 08-02, inside the export
+            "`edge-reversal` | 2 | 65.00",            # #2004 sold 07-31, refunded 08-01; #2005 refunded 08-03
+            "`undated` | 1 | 10.00",                  # #2006: no day on the Shopify row
+            "Undated rows: 1 Shopify order(s)",
+            "residual (unexplained classes): **15.00** across 3 orders",
+        ),
+        forbid_text=("WARNING", "| `day-shift` |"),
+    )
+    ok &= run(
+        "quoted figures: a reproduced quote passes, a gap is reported and blocks reconciled",
+        edge + ["--quoted-shopify-net", "250", "--quoted-sm-net", "300"],
+        expect=1,
+        require_text=("| Shopify | 250.00 | 250.00 | 0.00 | yes |", "| SourceMedium | 300.00 | 290.00 | 10.00 | no |"),
+    )
+    clean = [py, str(RECONCILE), "--shopify", str(FIXTURES / "clean_shopify_sales_by_order.csv"),
+             "--sm", str(FIXTURES / "clean_sm_orders.csv"), "--window", "2026-08-01", "2026-08-02"]
+    ok &= run(
+        "clean pair with a quote it reproduces still reconciles (exit 0)",
+        clean + ["--quoted-shopify-net", "570.50"],
+        expect=0,
+        require_text=("**Verdict:** `reconciled`",),
+    )
+    ok &= run(
+        "clean pair with a quote it does not reproduce is not reconciled (exit 1)",
+        clean + ["--quoted-shopify-net", "600"],
+        expect=1,
+        require_text=("**Verdict:** `differences-remain`", "| Shopify | 600.00 | 570.50 | 29.50 | no |"),
     )
 
     with tempfile.TemporaryDirectory() as tempdir:
@@ -269,6 +310,39 @@ def comparator_cases() -> bool:
             [py, str(RECONCILE), "--shopify", str(FIXTURES / "clean_shopify_sales_by_order.csv"), "--sm", str(dup)],
             expect=2,
             require_text=("duplicate order id",),
+        )
+        ok &= run(
+            "invalid --window date exits 2 with a usage error, no traceback",
+            clean[:-2] + ["2026-08-01", "2026-8-32"],
+            expect=2,
+            require_text=("invalid date",),
+        )
+        ok &= run(
+            "--window END before START exits 2",
+            clean[:-2] + ["2026-08-02", "2026-08-01"],
+            expect=2,
+            require_text=("END precedes START",),
+        )
+        nodays = Path(tempdir) / "nodays.csv"
+        nodays.write_text("Order ID,Order name,Gross sales,Net sales,Orders\n6100000002,#1002,80,80,1\n", encoding="utf-8")
+        ok &= run(
+            "--window with a Shopify export that has no day column exits 2",
+            [py, str(RECONCILE), "--shopify", str(nodays), "--sm", str(FIXTURES / "clean_sm_orders.csv"),
+             "--window", "2026-08-01", "2026-08-02"],
+            expect=2,
+            require_text=("no day column",),
+        )
+        epoch = Path(tempdir) / "epoch.csv"
+        epoch.write_text(
+            "order_id,order_name,is_order_sm_valid,order_processed_at,order_net_revenue\n"
+            "6100000002,#1002,true,1.7856009025E9,80\n",
+            encoding="utf-8",
+        )
+        ok &= run(
+            "an MCP epoch-seconds TIMESTAMP exits 2 and names FORMAT_TIMESTAMP",
+            [py, str(RECONCILE), "--shopify", str(FIXTURES / "clean_shopify_sales_by_order.csv"), "--sm", str(epoch)],
+            expect=2,
+            require_text=("FORMAT_TIMESTAMP",),
         )
         ok &= run(
             "missing file exits 2 without traceback",

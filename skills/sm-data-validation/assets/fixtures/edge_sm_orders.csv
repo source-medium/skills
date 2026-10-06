@@ -1,0 +1,7 @@
+order_id,order_name,sm_store_id,sm_channel,is_order_sm_valid,order_processed_at,order_processed_at_local_datetime,latest_order_refund_date,order_currency_code,order_converted_currency_code,is_order_currency_canonicalized,order_gross_revenue,order_discounts,order_refunds,order_net_revenue
+6200000001,#2001,acme-us,online_dtc,true,2026-08-01 15:00:00,2026-08-01T08:00:00,,USD,USD,false,100,0,0,100
+6200000002,#2002,acme-us,online_dtc,true,2026-08-01 16:00:00,2026-08-01T09:00:00,2026-08-20,USD,USD,false,100,0,-40,60
+6200000003,#2003,acme-us,online_dtc,true,2026-08-01 17:00:00,2026-08-01T10:00:00,2026-08-02,USD,USD,false,100,0,-25,75
+6200000004,#2004,acme-us,online_dtc,false,2026-07-31 15:00:00,2026-07-31T08:00:00,2026-08-01,USD,USD,false,80,0,-80,0
+6200000005,#2005,acme-us,online_dtc,true,2026-08-02 15:00:00,2026-08-02T08:00:00,2026-08-03,USD,USD,false,60,0,-15,45
+6200000006,#2006,acme-us,online_dtc,true,2026-08-01 18:00:00,2026-08-01T11:00:00,,USD,USD,false,10,0,0,10
