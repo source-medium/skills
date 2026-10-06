@@ -86,16 +86,25 @@ until it completes, and a custom refund (money returned without a line
 item) appears in the Orders export's `Refunded Amount` but not as a sales
 reversal in Analytics.
 
-**Detect:** comparator classes `refund-attribution` (same order, refund on
-one side only) and `prior-period-return` (a Shopify row with `orders` = 0,
-the refund of an order sold before the window). Compare `order_refunds`
-with Shopify `sales_reversals` for those order ids; the refund day itself is
-visible on the Shopify side (the row's `day`), not in `obt_orders`.
+**Detect:** comparator classes `refund-attribution` (SM carries a refund
+Shopify books after the export's last day), `edge-reversal` (a refund booked
+across the window edge from its sale), and `prior-period-return` (a Shopify
+row with `orders` = 0, the refund of an order sold before the export).
+Shopify dates each refund by its row's `day`; SourceMedium's extract carries
+`latest_order_refund_date`, the date of the order's latest line refund in
+SourceMedium's store timezone. The comparator uses it: SM carrying more
+refund is timing only when that date is after the export's last day (or
+missing). Two refund classes are not timing and stay in the residual:
+`refund-missing-in-sm` (Shopify booked a refund inside the export that SM
+does not carry; check freshness, rung 6, before escalating) and
+`refund-missing-in-shopify` (SM dates a refund inside the export that the
+export does not show; check for a custom refund first).
 
 **Say:** Shopify books a return on the refund day; SM restates the original
 order. A week that contains refunds of earlier orders will always differ on
 net between the two, in opposite directions at the start and end of the
-window. Order-grain totals over the same order set agree.
+window. Order-grain totals over the same order set agree, apart from refunds
+booked after the export ends.
 
 ## 6. Freshness and publish lag
 
@@ -104,7 +113,8 @@ window. Order-grain totals over the same order set agree.
 
 **Detect:** `table_last_data_date` for `obt_orders` in
 `dim_data_dictionary`, compared with the window end. Then the SM extract's
-max `order_processed_at`.
+max `order_processed_at`. `get_account_health` says whether the Shopify
+connection and the pipeline are healthy, in the customer's own vocabulary.
 
 **Say:** SourceMedium publishes on a schedule; orders after the last publish
 are not there yet. Narrow the window to the last published day and re-run.
@@ -128,11 +138,18 @@ the right pair. Never continue a comparison across stores.
 
 **Looks like:** every amount differs by a near-constant ratio.
 
-**Detect:** `order_currency_code` versus the Shopify export currency.
-Multi-currency stores: compare `order_original_*` columns.
+**Detect:** `is_order_currency_canonicalized` in the SM extract (the
+comparator notes how many rows are converted). TRUE means the store has
+currency conversion on and the `order_*` amounts were converted into
+`order_converted_currency_code`, while `order_currency_code` still names the
+order's own currency, so comparing `order_currency_code` with the export
+cannot catch it. For converted rows, compare `order_original_*` with the
+export and check `order_original_currency_code` against the export's
+currency (the Orders export's `Currency` is the shop currency).
 
-**Say:** SM canonicalizes to one reporting currency; Shopify reports in the
-store currency. State the rate behavior and compare like with like.
+**Say:** SM reports this store converted into `<converted currency>`;
+Shopify reports in `<export currency>`. Compare `order_original_*` with the
+export, and state the rate SM applied (`order_currency_conversion_rate_applied`).
 
 ## 9. Order edits and line-basis differences
 
@@ -142,7 +159,8 @@ gross stays put), or includes a tip, a gift card product (excluded from
 Shopify gross sales), or a 100% discounted line.
 
 **Detect:** per-order deltas in `matched_deltas.csv`; open the order in
-Shopify admin (vector 2 or the human) and look at the timeline.
+Shopify admin (vector 2 or the human) and look at the timeline, or read the
+order through the MCP's `shopify_admin_graphql` (see `SHOPIFY_RAW_EXPORT.md`).
 
 **Say:** which orders, what changed, and when. If SM reflects the
 pre-edit state and the edit is older than the last publish, that is an

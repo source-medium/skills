@@ -105,10 +105,13 @@ FROM sales
 
 - `SINCE`/`UNTIL` are inclusive; this example pads 2026-07-27..08-02 by one
   day each side.
-- No `WHERE` clause, whatever filters the operator's report had. If their
-  figure came from a POS-excluded report, reproduce that figure with the
-  comparator's `--basis exclude-pos` flag; the order-level verdict always
-  comes from the unfiltered run.
+- No `WHERE` clause, whatever filters the operator's report had. Pass
+  their figure with `--quoted-shopify-net`: the gap to the export's total is
+  what their filter removed. The comparator's `--basis exclude-pos` cannot
+  remove POS from this export, which has no channel column; to reproduce a
+  POS-excluded figure, run the sales-by-day query with
+  `WHERE is_pos_sale = false` and read its total. The order-level verdict
+  always comes from the unfiltered run.
 - Always export; never read the on-screen table as the dataset. The page
   renders a capped preview (about 1,400 rows on the store checked) and tells
   you to export for the rest. Without `LIMIT` a query returns 1,000 rows;
@@ -188,6 +191,37 @@ Traps:
 - If the operator belongs to several stores (agency or multi-brand), confirm
   the handle matches the `sm_store_id` you are extracting from SourceMedium.
   A cross-store comparison looks exactly like a 100% discrepancy.
+
+## Spot-checking single orders through the MCP
+
+The SourceMedium MCP's `shopify_admin_graphql` runs one read-only Admin
+GraphQL query against the connected store: query operations only, pages of
+at most 100, with the cursor passed back for the next page. It reads order
+records, not Analytics, so it never replaces the export or the quoted figure.
+Use it to look at the orders a residual class names, such as their processed
+time, cancellation, test flag, and refunds:
+
+```graphql
+query Orders($q: String!) {
+  orders(first: 25, query: $q) {
+    nodes {
+      legacyResourceId
+      name
+      processedAt
+      cancelledAt
+      test
+      currentSubtotalPriceSet { shopMoney { amount currencyCode } }
+      refunds { createdAt totalRefundedSet { shopMoney { amount } } }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+```
+
+with the order ids from the comparator's output in Shopify's search syntax,
+for example `{"q": "id:6100000001 OR id:6100000002"}`. `legacyResourceId` is
+the numeric order id `obt_orders.order_id` carries. Ask for no customer
+fields.
 
 ## Vector 3: the admin Orders CSV
 
