@@ -51,8 +51,8 @@ Residual after attribution: <amount> across <n> orders.
 ## Receipts
 
 - Acquisition vector: 2 (browser), ShopifyQL in `assets/shopifyql/sales_by_order.shopifyql` with SINCE 2026-07-26 UNTIL 2026-08-03, no filters
-- SM extract: `sm_extract.sql` (below), dry-run <bytes>
-- Comparator: `python scripts/sm_reconcile_orders.py --shopify … --sm … --window 2026-07-27 2026-08-02 --shopify-utc-offset -7`
+- SM extract: `sm_extract.sql` (below), through the MCP in <n> pages, none truncated (receipt per page), or with direct access, dry-run <bytes>
+- Comparator: `python scripts/sm_reconcile_orders.py --shopify … --sm … --window 2026-07-27 2026-08-02 --quoted-shopify-net <amount> --quoted-sm-net <amount> --shopify-utc-offset -7`
 
 ```sql
 -- sm_extract.sql as run

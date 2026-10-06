@@ -6,16 +6,17 @@ description: >
   SourceMedium says Y", "is this discrepancy real", "validate my orders /
   revenue / refunds for last week", or any request to reconcile SourceMedium
   BigQuery data with a raw export from Shopify or another connected source.
-  It acquires the raw data through whichever vector the agent has (BigQuery
-  CLI, browser/computer use, or a human-supplied CSV), compares at the right
-  grain, and names the cause of every difference. Do not use for ordinary
+  It acquires the raw data through whichever vector the agent has (a raw
+  table in the warehouse, browser/computer use, or a human-supplied CSV),
+  pulls the SourceMedium side through the SourceMedium MCP, compares at the
+  right grain, and names the cause of every difference. Do not use for ordinary
   analysis (use sm-bigquery-analyst), dashboards (use sm-dashboard-builder),
   or building pipelines (use sm-pipeline-builder).
 metadata:
   author: sourcemedium
   version: "0.1"
   short-description: "Reconcile SourceMedium data against raw source exports."
-  requirements: "Read access to the SourceMedium BigQuery project (jobUser + dataViewer on sm_transformed_v2 and sm_metadata) with gcloud/bq authenticated, the sm-bigquery-analyst skill, Python 3.9+, and one raw-data vector: a raw table in BigQuery, a browser the agent may drive with the operator signed in to Shopify admin, or an operator who can export a CSV. See Before you start."
+  requirements: "Works on every SourceMedium plan through the SourceMedium MCP; direct warehouse access (Pro) is optional. Needs the sm-bigquery-analyst skill, Python 3.9+, and one raw-data vector: a raw table in a dedicated warehouse (Pro), a browser the agent may drive with the operator signed in to Shopify admin, or an operator who can export a CSV. See Before you start."
 ---
 
 # SourceMedium Data Validation
@@ -45,25 +46,31 @@ language. Do not touch data until every item that applies is confirmed.
   dates), the store, both stated figures, and the Shopify store's timezone
   (Settings > General > Standards and formats). Without a window and a
   report name there is nothing to validate.
-- **The SourceMedium project** (`sm-<tenant_id>`) and whether the tenant
-  has one `sm_store_id` or several.
-- **Warehouse access.** A Google account holding `roles/bigquery.jobUser`
-  on the project and `roles/bigquery.dataViewer` on `sm_transformed_v2` and
-  `sm_metadata`; `gcloud` and `bq` installed and authenticated; the
-  `sm-bigquery-analyst` skill installed and its doctor script passing. This
-  skill reuses that skill's discovery rules, safety rules, and query helper.
-  If access is missing, send the operator the request template at
+- **SourceMedium access, through the SourceMedium MCP** (every plan):
+  `get_data_context` succeeds and reports the warehouse project, the dataset
+  names, `allowed_datasets`, and the connected Shopify store. Direct
+  warehouse access (`bq` with the operator's own Google account) is part of
+  Pro and optional here: with it, the extract can also run through the
+  analyst skill's `sm_bq_query.py`. The routes are the ones
+  `sm-bigquery-analyst` describes in "Choose the Route"; this skill reuses
+  its warehouse names, discovery rules, and safety rules. If the MCP is not
+  connected, give the operator
   `sm-bigquery-analyst/assets/BIGQUERY_ACCESS_REQUEST_TEMPLATE.md` and stop
-  until it is granted.
+  until it is.
+- **The store**: the `sm_store_id` values (`SELECT DISTINCT`), and which one
+  is the Shopify store the claim is about.
 - **Python 3.9+** on the machine that will run
   `scripts/sm_reconcile_orders.py`.
 - **Two decisions from the operator:** the tolerances (default 0.01 per
   order and 1.00 on the total, counts exact) and who receives the report.
 
-### Vector 1: raw data already in BigQuery
+### Vector 1: raw data already in the warehouse (Pro)
 
-- Project, dataset, and table of the raw Shopify orders, and
-  `roles/bigquery.dataViewer` on it for the same account.
+- A dedicated warehouse. Shared-warehouse (Foundation) tenants cannot join
+  their own tables to SourceMedium data in the warehouse; use vector 2 or 3.
+- Project, dataset, and table of the raw Shopify orders. A dataset in the
+  dedicated project is reachable through `run_bigquery_sql`; `sm_sources`
+  and other projects need direct warehouse access.
 - Its grain (one row per order or per line item) and the timezone of its
   timestamps; discover both before writing SQL.
 
@@ -101,7 +108,8 @@ these, it is the wrong vector.
 ### Ready when
 
 - The claim is pinned and the project and store are known.
-- A dry-run against the SourceMedium project succeeds.
+- A small `run_bigquery_sql` against `<project>.<sm_transformed_v2>.obt_orders`
+  returns (with direct access, a dry-run through `sm_bq_query.py` succeeds).
 - One vector is chosen and every item under it is confirmed.
 
 ## Workflow
@@ -111,11 +119,13 @@ these, it is the wrong vector.
    stated numbers, and what filters the source report had (POS excluded?
    cancelled included?). If any of these are unknown, ask. A claim without a
    window and a report name cannot be validated.
-2. **Resolve the SourceMedium side.** Follow `sm-bigquery-analyst` discovery:
-   confirm the project, `sm_store_id` values, and `table_last_data_date` for
-   `obt_orders` in `sm_metadata.dim_data_dictionary`. If the window extends
-   past the last data date, the comparison is already decided for those
-   days. Say so and narrow the window.
+2. **Resolve the SourceMedium side.** `get_data_context` for the project and
+   dataset names, then `sm-bigquery-analyst` discovery: `sm_store_id` values
+   and `table_last_data_date` for `obt_orders` in
+   `<sm_metadata>.dim_data_dictionary`. If the window extends past the last
+   data date, the comparison is already decided for those days. Say so and
+   narrow the window. When recent days look thin or a source seems missing,
+   call `get_account_health`.
 3. **Choose the comparison grain.** Totals only prove a discrepancy exists.
    The protocol is layered: totals on an identical basis, then by day, then
    order by order. Order grain is the one that settles it. Read
@@ -125,14 +135,19 @@ these, it is the wrong vector.
    the window **padded one day on each side** so timezone boundary orders
    are present on both sides.
 5. **Extract the SourceMedium rows** with the canonical query in
-   `references/COMPARISON_PROTOCOL.md`, including invalid and excluded
-   orders so they can be classified rather than silently dropped. Run it
-   through `sm_bq_query.py --format csv` (or equivalent `bq` with a cost
-   cap).
+   `references/COMPARISON_PROTOCOL.md`, over the same padded window,
+   including invalid and excluded orders so they can be classified rather
+   than silently dropped. Through the MCP, run it one day at a time with
+   `run_bigquery_sql` so no page is truncated, and write the pages to the CSV
+   the comparator reads. With direct access, `sm_bq_query.py --format csv`
+   with `--max-rows` sized to the window. A truncated page or exit 7 means an
+   incomplete extract: stop.
 6. **Run the comparator**: `scripts/sm_reconcile_orders.py` matches orders
    by platform order id, aligns signs and bases, and classifies every
-   unmatched order and every per-order delta. Do the arithmetic with the
-   script, not in prose.
+   unmatched order and every per-order delta. Pass the operator's figures
+   with `--quoted-shopify-net` and `--quoted-sm-net` so any gap between the
+   claim and the inputs is on the page. Do the arithmetic with the script,
+   not in prose.
 7. **Walk the cause ladder** in `references/DISCREPANCY_CAUSES.md` top to
    bottom. Each rung either explains part of the delta (with a count and a
    dollar amount) or is ruled out with evidence. Stop when the residual is
@@ -145,15 +160,19 @@ these, it is the wrong vector.
 
 Pick the first vector that applies. Record which one you used in the report.
 
-### Vector 1: the raw data is already in BigQuery
+### Vector 1: the raw data is already in the warehouse (Pro)
 
-Some tenants have Shopify (or another source) landing in their own BigQuery
-project through a connector they own, or SourceMedium has provisioned raw
-data delivery for them. Check `dim_data_dictionary` and `INFORMATION_SCHEMA`
-for raw datasets before asking anyone to export anything. If a raw orders
-table exists, the whole comparison is SQL: see the raw-table variant in
-`references/COMPARISON_PROTOCOL.md`. All `sm-bigquery-analyst` safety rules
-apply: SELECT-only, dry-run, cost cap, no cross-tenant joins.
+On a dedicated warehouse, Shopify (or another source) may land in a dataset
+of the customer's own through a connector they run, or in `sm_sources` (raw
+source tables the customer selected, personal-data columns withheld). Look
+for them before asking anyone to export anything: `search_data_catalog`
+coverage and `INFORMATION_SCHEMA` inside the allowed datasets, or with direct
+access `INFORMATION_SCHEMA` in `sm_sources`. If a raw orders table exists,
+the whole comparison is SQL: see the raw-table variant in
+`references/COMPARISON_PROTOCOL.md`. `run_bigquery_sql` reaches the
+customer's datasets in the dedicated project; `sm_sources` and other
+projects need direct warehouse access. All `sm-bigquery-analyst` safety
+rules apply: SELECT-only, dry-run, cost cap, no cross-tenant joins.
 
 ### Vector 2: the agent can drive a browser
 
@@ -185,7 +204,10 @@ human for store credentials or an API token; a CSV is all this skill needs.
    conclude from totals in either direction.
 3. **Pad the window.** Raw export and SM extract both cover one extra day on
    each side of the claimed window. Boundary orders are the single most
-   common cause and they are invisible otherwise.
+   common cause and they are invisible otherwise. One day is enough: two
+   timezones less than a day apart move an order by at most one calendar
+   day, and the comparator only needs each in-window order's twin on the
+   other side.
 4. **Pull both sides unfiltered, then classify.** The Shopify export has no
    `WHERE` clause and the SM extract includes `is_order_sm_valid = FALSE` and
    every `sm_channel`. The comparison is every order against every order;
@@ -213,7 +235,8 @@ human for store credentials or an API token; a CSV is all this skill needs.
 Read only what the step needs.
 
 - `references/COMPARISON_PROTOCOL.md` — the layered protocol, the canonical
-  SM extract query, the raw-table SQL variant, tolerance rules, and how to
+  SM extract query and how to page it through the MCP (or run it with
+  direct access), the raw-table SQL variant, tolerance rules, and how to
   read the comparator output.
 - `references/SHOPIFY_RAW_EXPORT.md` — ShopifyQL queries, Shopify Analytics
   semantics (what gross/discounts/returns/net/total mean there), the
@@ -250,7 +273,8 @@ Every validation ends with a report in this shape (template in
 5. **Attribution table** — one row per cause: orders affected, dollar
    effect, evidence (query or script section). Unexplained residual last.
 6. **Vector and receipts** — which acquisition vector, the exact ShopifyQL
-   or export used, the SM SQL with dry-run bytes, the comparator command.
+   or export used, the SM SQL with its receipts (MCP receipts per page, or
+   dry-run bytes), the comparator command.
 7. **Recommendation** — what, if anything, should change: usually a config
    setting (store timezone), a reporting habit (compare on processed date,
    POS excluded), or nothing. Only recommend a data fix when the verdict is
@@ -267,15 +291,17 @@ them, follow the same steps by hand and say so in the report.
 - `scripts/sm_reconcile_orders.py` — deterministic comparator. Input: a
   Shopify export (ShopifyQL sales-by-order CSV or admin Orders CSV, format
   auto-detected) and the SM extract CSV. Output: a Markdown report on stdout
-  with totals, daily alignment, order matching, per-order deltas, and cause
+  with totals (Shopify rows counted on their own day), any gap to the quoted
+  figures, daily alignment, order matching, per-order deltas, and cause
   classification; optional per-category CSVs with `--out-dir`. Exit 0 when
   reconciled within tolerance, 1 when attributed or unexplained differences
-  remain, 2 on input errors.
+  remain, 2 on input or argument errors.
 - `scripts/qa_sm_data_validation_skill.py` — package QA: frontmatter,
   reference routing, eval shape, and comparator behavior on the bundled
-  fixtures (a clean pair that reconciles and a planted pair that must be
-  classified correctly).
+  fixtures (a clean pair that reconciles, a planted pair and an edge pair
+  that must be classified correctly) and on bad arguments.
 
-The SourceMedium side is queried with the analyst skill's helper at
-`sm-bigquery-analyst/scripts/sm_bq_query.py`; this skill does not ship a
-second query runner.
+The SourceMedium side is queried through the SourceMedium MCP
+(`run_bigquery_sql`), or with direct warehouse access through the analyst
+skill's helper at `sm-bigquery-analyst/scripts/sm_bq_query.py`; this skill
+does not ship a second query runner.

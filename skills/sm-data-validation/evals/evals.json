@@ -8,7 +8,8 @@
         "pads the window one day each side on both sides before extracting",
         "compares order by order, not totals only",
         "names each cause with order counts and dollar effect",
-        "does not call either side wrong from the totals alone"
+        "does not call either side wrong from the totals alone",
+        "passes both quoted figures to the comparator and reports any gap to what the inputs reproduce"
       ]
     },
     {
@@ -18,7 +19,7 @@
         "chooses the human-export vector and hands over assets/MANUAL_SHOPIFY_EXPORT.md",
         "prefers the ShopifyQL exploration export over the Orders page export",
         "never asks for store credentials or an API token",
-        "pulls the SourceMedium extract unfiltered and classifies invalid and excluded orders"
+        "pulls the SourceMedium extract unfiltered through the SourceMedium MCP, one day per page, checks no page is truncated, and classifies invalid and excluded orders"
       ]
     },
     {
@@ -28,7 +29,8 @@
         "uses the explore URL with the ShopifyQL sales-by-order query and waits for hydration before exporting",
         "verifies the totals row against the operator's number before exporting",
         "confirms the Shopify handle maps to the sm_store_id being extracted",
-        "compares refunds at order grain and explains refund-day attribution drift"
+        "compares refunds at order grain and explains refund-day attribution drift",
+        "treats a refund Shopify booked inside the window that SourceMedium does not carry as residual, not timing"
       ]
     },
     {
@@ -45,8 +47,18 @@
       "should_trigger": true,
       "expectations": [
         "routes through references/OTHER_SOURCES.md to an ad-level by-day export",
+        "aggregates rpt_ad_performance_daily to ad and day before comparing, since its rows are not unique",
         "aligns account timezone and currency before comparing",
         "validates spend exactly and treats conversions as attribution-window dependent"
+      ]
+    },
+    {
+      "prompt": "We're on the Foundation plan and I don't have BigQuery access. Can you check last week's SourceMedium net revenue against Shopify?",
+      "should_trigger": true,
+      "expectations": [
+        "uses the SourceMedium MCP (get_data_context, then run_bigquery_sql) for the SourceMedium side",
+        "does not ask for BigQuery roles, gcloud, or the operator's Google Cloud admin",
+        "rules out the raw-table vector, which needs a dedicated warehouse, and moves to the browser or CSV vector"
       ]
     },
     {

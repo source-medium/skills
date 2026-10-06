@@ -40,7 +40,7 @@ PLACEHOLDER_RE = re.compile(r"<[a-z_][a-z0-9_]*>")
 # has nothing to run against here. Any other unresolved name is a bug.
 OPERATOR_PLACEHOLDERS = {
     "<your_project>", "<your_dataset>", "<your_table>", "<join_key>", "<dim_col>", "<metric>",
-    "<custom_metric>", "<store_col>", "<source_system_col>", "<order_id_col>",
+    "<custom_metric>", "<store_col>", "<source_system_col>", "<order_id_col>", "<sm_store_id>",
 }
 MAX_BYTES = 2 * 1024**3
 

@@ -25,6 +25,7 @@ What each skill needs:
 | `sm-bigquery-analyst` | Questions, metrics, SQL receipts | The `bq` scripts, joins to your own tables in the warehouse, `sm_sources`, results beyond the MCP's limits |
 | `sm-dashboard-builder` | HTML dashboards built from MCP results | Handoffs to BI tools that connect to BigQuery (Metabase, Looker Studio data sources, Tableau, Power BI) |
 | `sm-pipeline-builder` | (none) | The whole skill |
+| `sm-data-validation` | Order-by-order reconciliation against a Shopify export (browser or CSV), with the SourceMedium side through the MCP | Comparing against raw tables in your warehouse; running the extract with `bq` |
 
 ## Quick Start (Copy/Paste)
 
