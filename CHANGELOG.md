@@ -13,9 +13,8 @@
     same SQL runs through the MCP on the shared warehouse (`sourcemedium-bi`,
     `<tenant>_sm_*`) and on a dedicated one. The doctor resolves and prints the
     real names for direct access.
-  - Says what to do when `query_metrics` refuses a metric, including the
-    new- and repeat-customer metrics on catalogs that name
-    `valid_order_sequence`.
+  - Says what to do when `query_metrics` refuses a metric: it compiles one
+    table per call, so cross-table ratios such as CAC and MER fall back to SQL.
   - Fixes cohort LTV: sum, then divide, across channels and segments. It was
     `AVG(cumulative / cohort_size)`, which understated real cohorts by 11% to 15%.
   - New customers use `sm_valid_order_sequence`, not `order_sequence`.
@@ -42,8 +41,8 @@
   - Documents what `is_order_sm_valid` really excludes: fully refunded orders,
     and every channel other than online_dtc, amazon, tiktok_shop, retail and
     wholesale. Also documents that guest checkouts are almost all
-    `repeat_order`, that some catalog `filter_condition` columns are internal
-    names (`valid_order_sequence`), and that two report tables publish
+    `repeat_order`, that catalog `filter_condition` uses the customer tables'
+    column names (`sm_valid_order_sequence`), and that two report tables publish
     `sm_channel` unnormalized.
   - `sm_bq_query.py` no longer rejects valid SQL whose comments contain a quote.
 - `sm-dashboard-builder` 1.1: works on every plan through the MCP; BI-tool
