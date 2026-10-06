@@ -21,10 +21,10 @@ Resolve a named metric there before computing it; if the SourceMedium MCP is
 connected, `query_metrics` compiles the definition for you.
 
 When `query_metrics` refuses a metric, compute it with SQL from the catalog row
-and say why in the notes. A catalog whose new- and repeat-customer filters still
-name `valid_order_sequence` (the customer tables publish it as
-`sm_valid_order_sequence`) is refused for exactly those metrics and the CAC
-built on them; use the published name, as in `QUERY_PATTERNS.md`.
+and say why in the notes. It compiles one table per call, so it refuses every
+cross-table ratio (`underlying_model` is `Multiple models`: CAC, MER, and the
+new-customer MER and conversion rate); rebuild those as below, or as in
+`QUERY_PATTERNS.md`.
 
 Reading the catalog:
 
@@ -38,11 +38,9 @@ Reading the catalog:
 - `metric_type` is `simple`, `ratio`, `derived`, or `cumulative`.
 - `calculation` is documentation, **not runnable SQL**. A simple metric reads like
   `COUNT(sm_order_key) WHERE [filter applied]`; the actual filter is in
-  `filter_condition`. Its values are in published spelling (`'1st_order'`,
-  `'online_dtc'`), but some column names are internal ones that the customer
-  tables rename: `valid_order_sequence` is `sm_valid_order_sequence`. Check
-  every column a filter names against `INFORMATION_SCHEMA.COLUMNS` and map it
-  through the renames in `SCHEMA.md`. A ratio reads `metric_a / metric_b` in
+  `filter_condition`, written in the customer tables' own column names and
+  values (`sm_valid_order_sequence = '1st_order'`), so it runs against
+  `underlying_model` as written. A ratio reads `metric_a / metric_b` in
   metric names, not columns. A `CUMULATIVE_*` prefix is a marker.
 - `underlying_model` and `semantic_model_name` name the table (`obt_orders`,
   `obt_customers`, `rpt_ad_performance_daily`, `obt_funnel_event_history`,
@@ -53,7 +51,7 @@ Reading the catalog:
 Rebuilding a metric in SQL:
 
 1. **Simple**: the aggregate in `calculation`, on `underlying_model`, with
-   `filter_condition` (column names mapped to published ones) in the `WHERE`,
+   `filter_condition` in the `WHERE`,
    dated by `metric_time_expression`.
 2. **Ratio or derived**: resolve each metric in `dependent_metrics` the same way,
    each with its own filter and table. Aggregate each side to the reporting grain,

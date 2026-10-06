@@ -74,9 +74,8 @@ write, and which join keys and flags keep your tables consistent with ours.
   custom metric gets a different name, never a shadowed one.
 - Resolve metric names through `dim_semantic_metric_catalog` rather than
   guessing columns. Its `calculation` column is documentation, not runnable
-  SQL: apply the metric's `filter_condition` (its column names can be internal
-  ones, such as `valid_order_sequence` for the published
-  `sm_valid_order_sequence`; check them against the table), rebuild ratios from
+  SQL: apply the metric's `filter_condition` (written in the customer tables'
+  column names), rebuild ratios from
   `dependent_metrics`, and aggregate each side before dividing. If the
   `sm-dashboard-builder` skill is installed, the file at
   `sm-dashboard-builder/assets/metric_contract_template.json` (in that skill's

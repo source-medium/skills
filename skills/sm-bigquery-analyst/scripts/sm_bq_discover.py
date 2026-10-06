@@ -187,9 +187,8 @@ def main() -> int:
         )
         print(
             "\n_`calculation` is documentation, not runnable SQL. Ratios are numerator / denominator "
-            "metric names; a metric with has_filter = true applies `filter_condition`, whose column "
-            "names can be internal ones (valid_order_sequence is published as sm_valid_order_sequence): "
-            "check them against the table. Rebuild from dependent_metrics, filters included, "
+            "metric names; a metric with has_filter = true applies `filter_condition`, written in "
+            "the customer tables' column names. Rebuild from dependent_metrics, filters included, "
             "aggregating before dividing._"
         )
 

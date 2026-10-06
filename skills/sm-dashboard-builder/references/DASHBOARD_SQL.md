@@ -16,9 +16,9 @@ Use this reference when planning dashboard data contracts and writing BI-safe SQ
 - On every plan, use the SourceMedium MCP: `query_metrics` for catalog-metric
   tiles (it compiles SourceMedium's definition and returns the compiled SQL,
   which becomes the tile's SQL receipt) and `run_bigquery_sql` for custom tiles.
-  If `query_metrics` refuses a metric, write that tile's SQL from the catalog
-  row (new- and repeat-customer tiles use `sm_valid_order_sequence`, as below)
-  and note why. With direct warehouse access (Pro), `bq` works too.
+  `query_metrics` refuses cross-table ratios (`underlying_model`
+  `Multiple models`, such as CAC and MER); write those tiles' SQL from the
+  catalog row and note why. With direct warehouse access (Pro), `bq` works too.
 
 ## SQL Contract Per Tile
 
@@ -58,9 +58,8 @@ audited back to the BI contract.
 Resolve every named metric in `<sm_metadata>.dim_semantic_metric_catalog` first:
 `preferred_metric_name`, `calculation`, `filter_condition`, `underlying_model`,
 `dependent_metrics`. `calculation` is documentation, not runnable SQL; the
-filter is in `filter_condition`, whose column names can be internal ones
-(`valid_order_sequence` is published as `sm_valid_order_sequence`). The
-catalog's definitions today:
+filter is in `filter_condition`, written in the customer tables' column
+names. The catalog's definitions today:
 
 | Metric intent | Definition |
 |---------------|------------|
