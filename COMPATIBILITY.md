@@ -11,6 +11,7 @@ Use the `skills` CLI when available:
 npx skills add source-medium/skills --skill sm-bigquery-analyst
 npx skills add source-medium/skills --skill sm-dashboard-builder
 npx skills add source-medium/skills --skill sm-pipeline-builder
+npx skills add source-medium/skills --skill sm-data-validation
 ```
 
 Update installed copies with:
@@ -19,6 +20,7 @@ Update installed copies with:
 npx skills update sm-bigquery-analyst -y
 npx skills update sm-dashboard-builder -y
 npx skills update sm-pipeline-builder -y
+npx skills update sm-data-validation -y
 ```
 
 Use `--project` or `--global` when the agent supports both scopes and you need
@@ -34,6 +36,7 @@ mkdir -p .claude/skills
 cp -R skills/sm-bigquery-analyst .claude/skills/
 cp -R skills/sm-dashboard-builder .claude/skills/
 cp -R skills/sm-pipeline-builder .claude/skills/
+cp -R skills/sm-data-validation .claude/skills/
 ```
 
 To update a copied skill, replace the copied folder with the latest folder from

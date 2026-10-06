@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### `sm-data-validation` 0.1
+
+- Reconciles a SourceMedium number against the source platform's own
+  records, order by order. Shopify is the fully specified source: three
+  acquisition vectors (a raw table in a dedicated warehouse, an
+  agent-driven browser export, a human-supplied CSV), Shopify Analytics
+  semantics and ShopifyQL queries, and a cause ladder.
+- Works on every plan: the SourceMedium side is pulled through the
+  SourceMedium MCP, one day per `run_bigquery_sql` page with every page
+  checked for truncation. Direct warehouse access (Pro) can run the same
+  extract through `sm_bq_query.py`. Examples use lane-neutral names.
+- A deterministic comparator matches orders by platform id, totals Shopify
+  by each row's own day (the figure Shopify shows), pads the window one day
+  each side, re-buckets days by store timezone, and attributes the whole
+  net delta to named classes that sum to the headline. Refunds across the
+  window edge are their own class; a refund one side has and the other
+  lacks is timing only when SourceMedium carries it after the export ends,
+  and is residual otherwise. Rows with no day are reported, not counted.
+  The operator's quoted figures are compared with what the inputs
+  reproduce.
+- Fixtures cover a clean pair, a planted pair (timezone edge, invalid
+  order, draft and POS channels, refund timing, missing order), an
+  Orders-page export, and an edge pair (refund direction, refunds across
+  both window edges, an undated row).
+
 ### Accuracy pass against the current platform
 
 - `sm-bigquery-analyst` 2.0:

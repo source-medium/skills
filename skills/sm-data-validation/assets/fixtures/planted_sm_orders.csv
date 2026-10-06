@@ -1,0 +1,9 @@
+order_id,order_name,sm_store_id,sm_channel,is_order_sm_valid,order_processed_at,order_processed_at_local_datetime,order_created_at,order_cancelled_at,order_currency_code,order_gross_revenue,order_discounts,order_refunds,order_net_revenue,order_net_shipping,order_total_taxes,order_total_revenue
+6100000001,#1001,acme-us,online_dtc,true,2026-07-31 18:02:11 UTC,2026-07-31T14:02:11,2026-07-31 18:02:05 UTC,,USD,120,-10,0,110,8,9.9,127.9
+6100000002,#1002,acme-us,online_dtc,true,2026-08-01 15:30:00 UTC,2026-08-01T11:30:00,2026-08-01 15:29:58 UTC,,USD,80,0,-20,60,0,7.2,67.2
+6100000003,#1003,acme-us,online_dtc,true,2026-08-03 05:10:45 UTC,2026-08-03T01:10:45,2026-08-03 05:10:40 UTC,,USD,250,-25,0,225,12,15.75,252.75
+6100000004,#1004,acme-us,online_dtc,false,2026-08-01 14:00:00 UTC,2026-08-01T10:00:00,2026-08-01 13:59:59 UTC,2026-08-01 16:30:00 UTC,USD,45.5,0,0,45.5,5,4.1,54.6
+6100000005,#1005,acme-us,retail,true,2026-08-02 20:45:00 UTC,2026-08-02T16:45:00,2026-08-02 20:44:50 UTC,,USD,300,-30,0,270,0,24.3,294.3
+6100000006,#1006,acme-us,draft_orders,false,2026-08-02 16:00:00 UTC,2026-08-02T12:00:00,2026-08-02 15:59:00 UTC,,USD,60,0,0,60,6,5.4,71.4
+6100000007,#1007,acme-us,online_dtc,true,2026-08-02 12:00:00 UTC,2026-08-02T08:00:00,2026-08-02 11:59:00 UTC,,USD,42,0,0,42,0,3.78,45.78
+6100000009,#1009,acme-us,online_dtc,true,2026-08-03 14:00:00 UTC,2026-08-03T10:00:00,2026-08-03 13:59:00 UTC,,USD,15,0,0,15,0,1.35,16.35

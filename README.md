@@ -25,6 +25,7 @@ What each skill needs:
 | `sm-bigquery-analyst` | Questions, metrics, SQL receipts | The `bq` scripts, joins to your own tables in the warehouse, `sm_sources`, results beyond the MCP's limits |
 | `sm-dashboard-builder` | HTML dashboards built from MCP results | Handoffs to BI tools that connect to BigQuery (Metabase, Looker Studio data sources, Tableau, Power BI) |
 | `sm-pipeline-builder` | (none) | The whole skill |
+| `sm-data-validation` | Order-by-order reconciliation against a Shopify export (browser or CSV), with the SourceMedium side through the MCP | Comparing against raw tables in your warehouse; running the extract with `bq` |
 
 ## Quick Start (Copy/Paste)
 
@@ -55,6 +56,7 @@ My first question is: [ASK YOUR QUESTION]
 npx skills add source-medium/skills --skill sm-bigquery-analyst
 npx skills add source-medium/skills --skill sm-dashboard-builder
 npx skills add source-medium/skills --skill sm-pipeline-builder
+npx skills add source-medium/skills --skill sm-data-validation
 ```
 
 Repo-local commands below assume you are in this repository root.
@@ -68,6 +70,7 @@ with:
 npx skills update sm-bigquery-analyst -y
 npx skills update sm-dashboard-builder -y
 npx skills update sm-pipeline-builder -y
+npx skills update sm-data-validation -y
 ```
 
 To update project-scoped or global skills explicitly:
@@ -95,12 +98,14 @@ mkdir -p .claude/skills
 cp -R skills/sm-bigquery-analyst .claude/skills/
 cp -R skills/sm-dashboard-builder .claude/skills/
 cp -R skills/sm-pipeline-builder .claude/skills/
+cp -R skills/sm-data-validation .claude/skills/
 
 # Personal skill
 mkdir -p ~/.claude/skills
 cp -R skills/sm-bigquery-analyst ~/.claude/skills/
 cp -R skills/sm-dashboard-builder ~/.claude/skills/
 cp -R skills/sm-pipeline-builder ~/.claude/skills/
+cp -R skills/sm-data-validation ~/.claude/skills/
 ```
 
 Codex/OpenAI-compatible clients can also read the packaged `agents/openai.yaml`
@@ -113,6 +118,7 @@ metadata when their skill registry supports it.
 | `sm-bigquery-analyst` | Query SourceMedium BigQuery safely, discover warehouse metadata, and join operator-owned tables with SourceMedium metrics. |
 | `sm-dashboard-builder` | Build accurate BI dashboards from SourceMedium BigQuery data, defaulting to portable HTML with SQL receipts and renderer-appropriate charts. |
 | `sm-pipeline-builder` | Spec, build, validate, and operate bespoke data pipelines that land in customer-owned BigQuery datasets alongside SourceMedium data, or publish those tables back out to a system you own. |
+| `sm-data-validation` | Reconcile a SourceMedium number against the source platform's own export (Shopify first), order by order, through whichever acquisition vector the agent has, and attribute every difference to a named cause. |
 
 ## After Installing
 

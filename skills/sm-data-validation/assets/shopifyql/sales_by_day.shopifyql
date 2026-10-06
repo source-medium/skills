@@ -1,0 +1,5 @@
+FROM sales
+  SHOW gross_sales, discounts, sales_reversals, net_sales, shipping_charges, taxes, total_sales, orders
+  TIMESERIES day
+  SINCE {{start_minus_1}} UNTIL {{end_plus_1}}
+  ORDER BY day ASC
