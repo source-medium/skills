@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### `sm-bigquery-analyst`
+
+- Discovery guidance follows the tools the connection lists: SourceMedium's
+  catalog 2.0 describes tables with `search_data_catalog` and its `tables`
+  argument, and a connection on the earlier catalog keeps `describe_table`
+  and `describe_tables`.
+
 ### `sm-data-validation` 0.1
 
 - Reconciles a SourceMedium number against the source platform's own
