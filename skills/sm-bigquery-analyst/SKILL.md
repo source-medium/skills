@@ -26,9 +26,10 @@ a query fails.
 Two ways reach SourceMedium data, and the plan decides which the user has:
 
 - **Through SourceMedium, on every plan**: the SourceMedium MCP server (tools
-  named `get_data_context`, `search_data_catalog`, `describe_table`,
-  `describe_tables`, `query_metrics`, `run_bigquery_sql`, `get_account_health`),
-  signed in with the user's SourceMedium account.
+  named `get_data_context`, `search_data_catalog`, `query_metrics`,
+  `run_bigquery_sql`, `get_account_health`; a connection on SourceMedium's
+  earlier catalog also lists `describe_table` and `describe_tables`), signed in
+  with the user's SourceMedium account.
 - **Direct warehouse access, on Pro**: the user's own Google account (or their
   service accounts) querying BigQuery on their dedicated warehouse with `bq`,
   through this skill's scripts.
@@ -41,9 +42,14 @@ Use the MCP first whenever it is connected:
    result includes the compiled SQL; use that as the SQL receipt. Do not hand-roll
    a catalog metric that `query_metrics` accepts; when it refuses one, say why
    and fall back to SQL (`references/ANALYSIS_SEMANTICS.md`).
-3. Custom SQL over SourceMedium datasets: `run_bigquery_sql`. On a dedicated
-   warehouse it also reaches the customer's own datasets in the same project
-   and region, for direct workspace members, within about 15 minutes of a
+3. Custom SQL over SourceMedium datasets: describe the tables first, then
+   `run_bigquery_sql` with only the names they return. Describe with
+   `search_data_catalog` and its `tables` argument (up to four per call; a bare
+   catalog name, or `dataset.table` for any table in `allowed_datasets`), or
+   with `describe_table` / `describe_tables` when the connection lists those
+   instead. On a dedicated warehouse `run_bigquery_sql` also reaches the
+   customer's own datasets in the same project and region, for direct
+   workspace members, within about 15 minutes of a
    dataset's creation. Its receipt carries a hash of the SQL, so keep the SQL
    you sent.
 4. Stale data, missing sources, or "is my data flowing?": `get_account_health`.
@@ -104,8 +110,10 @@ python scripts/sm_bq_doctor.py --project <project>
 
 ## Discovery
 
-Through the MCP: `get_data_context`, `search_data_catalog`, and
-`describe_table(s)`, plus `run_bigquery_sql` for the queries in
+Through the MCP: `get_data_context` and `search_data_catalog` (its `tables`
+argument describes tables, including customer tables and nested fields; a
+connection that lists `describe_table(s)` describes with those), plus
+`run_bigquery_sql` for the queries in
 `references/QUERY_PATTERNS.md`. With direct warehouse access, the discovery
 script does the same:
 
